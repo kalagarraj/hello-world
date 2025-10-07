@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Result</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 0; padding: 2rem; background: #f7f7fb; }
+      .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); max-width: 680px; margin: 2rem auto; }
+      a { color: #0366d6; }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="root">
+      <h1>Result</h1>
+      <div id="output">Processing...</div>
+      <p><a href="/index.html">Back to Home</a></p>
+    </div>
+
+    <script src="/demo.js"></script>
+    <script>
+      (function(){
+        const params = new URLSearchParams(window.location.search);
+        const name = params.get('name') || '';
+        let output = 'No name provided.';
+        try {
+          if (window.demo && typeof window.demo === 'function') {
+            output = window.demo(name);
+          } else {
+            output = 'Demo function not found.';
+          }
+        } catch (err) {
+          output = 'Error running demo: ' + (err && err.message ? err.message : String(err));
+        }
+        document.getElementById('output').textContent = output;
+      })();
+    </script>
+  </body>
+</html>

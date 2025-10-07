@@ -16,6 +16,7 @@
   <body>
     <div id="root"></div>
 
+    <script src="/demo.js"></script>
     <script>
       // Minimal React app using the global React and ReactDOM from the CDN
       const e = React.createElement;
@@ -23,8 +24,18 @@
       function App() {
         return e('div', null,
           e('h1', null, 'Hello, React!'),
-          e('p', null, 'This is a minimal React app served as a static HTML file using the React CDN.'),
-          e('button', { onClick: () => alert('Button clicked!') }, 'Click me')
+          e('p', null, 'Enter your name below and submit to call the demo function and see results on a separate page.'),
+          e('form', { onSubmit: (ev) => {
+            ev.preventDefault();
+            const name = ev.target.elements.name.value.trim();
+            if (!name) { alert('Please enter a name.'); return; }
+            // Pass the name via query string to result.html
+            const q = new URLSearchParams({ name });
+            window.location.href = '/result.html?' + q.toString();
+          }},
+            e('input', { name: 'name', type: 'text', placeholder: 'Your name', style: { padding: '8px', fontSize: '16px', marginRight: '8px' } }),
+            e('button', { type: 'submit' }, 'Submit')
+          )
         );
       }
 
