@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello React</title>
+    <!-- Load React and ReactDOM from CDN for a minimal setup -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 0; padding: 2rem; background: #f7f7fb; }
+      #root { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); max-width: 680px; margin: 2rem auto; }
+      h1 { color: #0f172a; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script>
+      // Minimal React app using the global React and ReactDOM from the CDN
+      const e = React.createElement;
+
+      function App() {
+        return e('div', null,
+          e('h1', null, 'Hello, React!'),
+          e('p', null, 'This is a minimal React app served as a static HTML file using the React CDN.'),
+          e('button', { onClick: () => alert('Button clicked!') }, 'Click me')
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(e(App));
+    </script>
+  </body>
+</html>
