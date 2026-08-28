@@ -9,7 +9,13 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "redis:up": "docker compose up -d redis",
+    "redis:down": "docker compose down",
+    "redis:reset": "docker compose down -v",
+    "redis:cli": "docker compose exec redis redis-cli",
+    "redis:logs": "docker compose logs -f redis",
+    "redis:sessions": "docker compose exec redis redis-cli --scan --pattern 'sess:*'"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

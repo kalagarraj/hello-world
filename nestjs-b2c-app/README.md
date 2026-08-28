@@ -186,6 +186,51 @@ in production as users being randomly signed out. Failing the deploy is better
 than shipping that. `SESSION_ALLOW_MEMORY_STORE=true` overrides it for a
 throwaway environment, and logs a warning every boot.
 
+### Running Redis locally in Docker
+
+Optional -- local development works with no container at all, since an unset
+`REDIS_URL` keeps sessions in process. Use the container when you want to
+exercise the same store the deployed environments use, or to keep sessions
+across app restarts.
+
+```bash
+npm run redis:up          # docker compose up -d redis
+```
+
+Then set `REDIS_URL=redis://localhost:6379` in `.env` and start the app. It logs
+which store it picked at boot:
+
+```
+[SessionStore] Connected to Redis for local sessions
+[SessionStore] env=local store=redis prefix=sess:local: secure_cookie=false
+```
+
+| Script | Does |
+| --- | --- |
+| `npm run redis:up` | Start Redis in the background |
+| `npm run redis:down` | Stop it, keeping the data volume |
+| `npm run redis:reset` | Stop it and delete every session |
+| `npm run redis:cli` | Open `redis-cli` inside the container |
+| `npm run redis:sessions` | List the session keys currently stored |
+| `npm run redis:logs` | Tail the container logs |
+
+Two deliberate choices in `docker-compose.yml`: the port is published to
+`127.0.0.1` only, because an unauthenticated Redis reachable from the network
+would let anyone on it read and forge session cookies; and append-only
+persistence is on, so `docker compose restart` keeps sessions the way Azure does
+when the app restarts.
+
+The local URL is `redis://` (plaintext) while Azure is `rediss://` (TLS). That
+difference is carried entirely by the URL scheme -- no code or config branch.
+
+If `REDIS_URL` is set and Redis is not reachable, startup fails within a few
+seconds and names the fix rather than retrying forever:
+
+```
+Could not connect to Redis at redis://localhost:6379 - could not reach Redis
+after 5 attempts. Is the local container running? Start it with `npm run redis:up`.
+```
+
 ### Pointing an Azure environment at Redis
 
 Get the connection string from the portal: your Redis resource -> **Access keys**

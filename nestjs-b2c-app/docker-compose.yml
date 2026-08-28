@@ -1,0 +1,29 @@
+# Local development dependencies. Azure Cache for Redis stands in for this in
+# every deployed environment -- see README "Session storage per environment".
+#
+#   docker compose up -d          start Redis
+#   docker compose down           stop it, keeping sessions
+#   docker compose down -v        stop it and wipe all sessions
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: b2c-redis
+    # Bound to loopback only: an unauthenticated Redis reachable from the
+    # network would let anyone on it read and forge session data.
+    ports:
+      - '127.0.0.1:6379:6379'
+    # Persist to disk so sessions survive `docker compose restart`, which is
+    # how Azure Cache for Redis behaves when the app restarts.
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  redis-data:

@@ -8,6 +8,18 @@ import type { SessionSettings } from './session.config';
 
 const logger = new Logger('SessionStore');
 
+/** Keeps the access key out of logs and error messages. */
+function redactUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.password = '';
+    parsed.username = '';
+    return parsed.toString();
+  } catch {
+    return '<unparseable REDIS_URL>';
+  }
+}
+
 export interface SessionMiddleware {
   handler: RequestHandler;
   /** Present only for the Redis store; closed on shutdown. */
@@ -81,23 +93,56 @@ async function resolveStore(settings: SessionSettings): Promise<{
     );
   }
 
+  // Retry a few times at startup, then give up: an unbounded retry would leave
+  // the process hanging on a bad URL instead of failing the deploy. Once the
+  // first connection succeeds, reconnect indefinitely so a transient blip does
+  // not take the app down.
+  const STARTUP_ATTEMPTS = 5;
+  let everConnected = false;
+
   const client: RedisClientType = createClient({
     url: settings.redisUrl,
     socket: {
-      // Azure closes idle connections; reconnect with backoff rather than
-      // failing the next request that needs a session.
-      reconnectStrategy: (retries) => Math.min(retries * 200, 5000),
+      connectTimeout: 10_000,
+      reconnectStrategy: (retries: number) => {
+        if (!everConnected && retries >= STARTUP_ATTEMPTS) {
+          return new Error(
+            `could not reach Redis after ${STARTUP_ATTEMPTS} attempts`,
+          );
+        }
+        return Math.min((retries + 1) * 200, 5000);
+      },
     },
   });
 
+  // Startup failures are reported by the throw below; only log once connected,
+  // so a failed boot does not bury the real message under repeated noise.
   client.on('error', (error: Error) => {
-    logger.error(`Redis client error: ${error.message}`);
+    if (everConnected) {
+      logger.error(`Redis client error: ${error.message}`);
+    }
   });
-  client.on('reconnecting', () => logger.warn('Reconnecting to Redis...'));
+  client.on('reconnecting', () => {
+    if (everConnected) {
+      logger.warn('Reconnecting to Redis...');
+    }
+  });
 
   // Connect during bootstrap so a bad URL or firewall rule fails the deploy
   // rather than every user's sign-in.
-  await client.connect();
+  try {
+    await client.connect();
+    everConnected = true;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    const hint = /localhost|127\.0\.0\.1/.test(settings.redisUrl)
+      ? 'Is the local container running? Start it with `npm run redis:up`.'
+      : 'Check the URL, the access key, and that the Redis firewall allows this host.';
+    throw new Error(
+      `Could not connect to Redis at ${redactUrl(settings.redisUrl)} - ${reason}. ${hint}`,
+    );
+  }
+
   logger.log(`Connected to Redis for ${settings.appEnv} sessions`);
 
   return {
