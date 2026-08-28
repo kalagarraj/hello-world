@@ -148,7 +148,10 @@ Set `AUTH_TRACE=false` to turn the whole trace off.
 
 ```
 src/
-  main.ts                    bootstrap, hbs views, express-session, passport
+  main.ts                    bootstrap, hbs views, session middleware, passport
+  session/
+    session.config.ts        APP_ENV / REDIS_URL -> session settings
+    session.factory.ts       picks in-process or Redis store, fails fast
   auth/
     oidc.config.ts           env -> OidcConfig (discovery URL, client, scopes)
     auth.module.ts           discovery at startup -> Client -> Strategy providers
@@ -167,9 +170,60 @@ Claim mapping worth knowing about: B2C returns e-mail addresses in an `emails`
 array (not the standard `email` claim), the account identifier in `oid`, and the
 user flow name in `tfp` — `user.model.ts` normalises all three.
 
+## Session storage per environment
+
+`APP_ENV` selects the store, so no code changes between local and Azure:
+
+| `APP_ENV` | `REDIS_URL` | Store | Behaviour |
+| --- | --- | --- | --- |
+| `local` | unset | in-process | No infrastructure needed |
+| `dev` / `test` / `prod` | set | Azure Cache for Redis | Survives restarts, shared across instances |
+| anything but `local` | unset | — | **Startup fails** |
+
+That last row is deliberate. The in-process store silently loses every session on
+restart and gives each instance its own view of who is signed in, which surfaces
+in production as users being randomly signed out. Failing the deploy is better
+than shipping that. `SESSION_ALLOW_MEMORY_STORE=true` overrides it for a
+throwaway environment, and logs a warning every boot.
+
+### Pointing an Azure environment at Redis
+
+Get the connection string from the portal: your Redis resource -> **Access keys**
+-> *Primary connection string*. Azure requires TLS, so the URL is `rediss://` on
+port 6380:
+
+```
+REDIS_URL=rediss://:<access-key>@<name>.redis.cache.windows.net:6380
+```
+
+Set it as an app setting on the App Service / Container App for each environment
+(deployment slots carry their own settings, so a staging slot can point at its
+own cache). The client connects during bootstrap, so a wrong URL or a missing
+firewall rule fails the deploy rather than every user's sign-in.
+
+### Several Azure environments
+
+Each environment writes under its own key prefix, defaulting to
+`sess:<APP_ENV>:`, so dev, test and prod can share one cache without colliding —
+a session issued by dev is simply not found by test.
+
+**Prefixes are namespacing, not a security boundary.** Anyone holding the access
+key can read every prefix in that cache. For environments at different trust
+levels — prod especially — give each its own cache instance, or at minimum its
+own Redis database and key. Sharing is fine between dev and test; prod should be
+alone.
+
+Two other things worth knowing: the Basic tier is a single node with no SLA, so
+maintenance signs everybody out — use Standard or above where that matters. And
+sessions carry a TTL derived from `SESSION_MAX_AGE_MS`, so abandoned sessions
+expire rather than accumulating.
+
 ## Notes for production
 
-* Set `NODE_ENV=production` so the session cookie is issued with `secure`.
-* Replace the in-memory session store (`express-session`'s default) with Redis or
-  another shared store before running more than one instance.
-* Keep `SESSION_SECRET` and `B2C_CLIENT_SECRET` in a secret store, not in the repo.
+* Keep `SESSION_SECRET` and `B2C_CLIENT_SECRET` in a secret store (Key Vault
+  referenced from app settings), not in the repo.
+* `SESSION_SECRET` must be identical across every instance of one environment,
+  or instances cannot read each other's cookies — and different between
+  environments.
+* The app trusts one proxy hop (`trust proxy`), which is what Azure's front end
+  needs for the `secure` cookie flag to behave.

@@ -6,10 +6,11 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import session from 'express-session';
 import passport from 'passport';
 
 import { AppModule } from './app.module';
+import { loadSessionSettings } from './session/session.config';
+import { createSessionMiddleware } from './session/session.factory';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -25,22 +26,23 @@ async function bootstrap(): Promise<void> {
   // Every view is wrapped by views/layouts/main.hbs, which renders {{{body}}}.
   app.set('view options', { layout: 'layouts/main' });
 
-  const isProduction = config.get<string>('NODE_ENV') === 'production';
+  // Local runs keep sessions in process; every deployed environment gets a
+  // shared store so sessions survive restarts and scale-out.
+  const sessionSettings = loadSessionSettings(config);
+  const sessions = await createSessionMiddleware(sessionSettings);
 
-  app.use(
-    session({
-      name: 'b2c.sid',
-      secret: config.get<string>('SESSION_SECRET') ?? 'dev-only-insecure-secret',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isProduction,
-        maxAge: 60 * 60 * 1000,
-      },
-    }),
-  );
+  // Release the Redis connection on the way out so Azure does not leave the
+  // socket dangling across a restart or scale-in.
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      void app
+        .close()
+        .then(() => sessions.close())
+        .finally(() => process.exit(0));
+    });
+  }
+
+  app.use(sessions.handler);
   app.use(passport.initialize());
   app.use(passport.session());
 
