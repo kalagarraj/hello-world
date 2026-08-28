@@ -239,6 +239,48 @@ Could not connect to Redis at redis://localhost:6379 - could not reach Redis
 after 5 attempts. Is the local container running? Start it with `npm run redis:up`.
 ```
 
+### Azure Cosmos DB emulator (optional)
+
+`docker-compose.yml` also carries the Cosmos DB emulator, behind a Compose
+profile so it does **not** start with a plain `docker compose up` -- nothing in
+this app uses Cosmos, and the emulator is far heavier than Redis.
+
+```bash
+npm run cosmos:up      # docker compose --profile cosmos up -d cosmos
+npm run cosmos:logs    # follow startup, which takes a while on first run
+npm run cosmos:down    # stop and remove it
+```
+
+| What | Where |
+| --- | --- |
+| Gateway / data plane | `http://localhost:8081` |
+| Data Explorer | `http://localhost:1234` |
+
+The account key is the fixed, publicly documented emulator key -- the same
+string for every install, and deliberately not a secret:
+
+```
+C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+```
+
+Never let that value near a real deployment: anything holding it is talking to
+an emulator, and a config that accepts it in a deployed environment is a bug.
+
+Notes on the setup:
+
+* It runs with `--protocol http`. The HTTPS mode generates a self-signed
+  certificate you would then have to export and trust in every client, which is
+  a lot of ceremony for local development. Switch to `https` only when testing
+  TLS behaviour specifically.
+* Like Redis, the ports publish to `127.0.0.1` only.
+* This is the `vnext` Linux emulator, which runs natively on Apple silicon and
+  ARM as well as x86, unlike the older emulator image.
+* It serves the **NoSQL API**. If you need the MongoDB or Cassandra API, check
+  current support before relying on this image.
+* **No data volume is configured**, so everything is lost when the container is
+  removed. The emulator's persistence path was not verified when this was
+  written -- confirm it against current docs before adding a volume.
+
 ### Pointing an Azure environment at Redis
 
 Get the connection string from the portal: your Redis resource -> **Access keys**

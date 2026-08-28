@@ -15,7 +15,10 @@
     "redis:reset": "docker compose down -v",
     "redis:cli": "docker compose exec redis redis-cli",
     "redis:logs": "docker compose logs -f redis",
-    "redis:sessions": "docker compose exec redis redis-cli --scan --pattern 'sess:*'"
+    "redis:sessions": "docker compose exec redis redis-cli --scan --pattern 'sess:*'",
+    "cosmos:up": "docker compose --profile cosmos up -d cosmos",
+    "cosmos:down": "docker compose --profile cosmos rm -sf cosmos",
+    "cosmos:logs": "docker compose --profile cosmos logs -f cosmos"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
