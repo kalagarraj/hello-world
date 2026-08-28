@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PassportSerializer } from '@nestjs/passport';
 
+import { authFlow } from './auth-flow.logger';
 import type { AppUser } from './user.model';
 
 /**
@@ -10,6 +11,7 @@ import type { AppUser } from './user.model';
 @Injectable()
 export class SessionSerializer extends PassportSerializer {
   serializeUser(user: AppUser, done: (err: Error | null, user: AppUser) => void) {
+    authFlow('7. SESSION WRITE', { user: user.name, id: user.id });
     done(null, user);
   }
 
@@ -17,6 +19,7 @@ export class SessionSerializer extends PassportSerializer {
     payload: AppUser,
     done: (err: Error | null, user: AppUser) => void,
   ) {
+    authFlow('SESSION READ', { user: payload?.name });
     done(null, payload);
   }
 }

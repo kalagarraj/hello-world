@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Optional, Req, Res, UseGuards } from '@nestjs/
 import type { Request, Response } from 'express';
 import type { Client } from 'openid-client';
 
+import { authFlow, flowId } from './auth-flow.logger';
 import { AuthenticatedGuard } from './authenticated.guard';
 import { OIDC_CLIENT, OIDC_CONFIG, type OidcConfig } from './oidc.config';
 import { OidcAuthGuard } from './oidc-auth.guard';
@@ -40,6 +41,9 @@ export class AuthController {
   logout(@Req() req: Request, @Res() res: Response): void {
     const user = req.user as AppUser | undefined;
     const idTokenHint = user?.idToken;
+    const flow = flowId(req);
+
+    authFlow('9. LOGOUT START', { flow, user: user?.name });
 
     req.logout((logoutError) => {
       if (logoutError) {
@@ -48,18 +52,26 @@ export class AuthController {
 
       req.session.destroy(() => {
         res.clearCookie('b2c.sid');
+        authFlow('10. SESSION CLEARED', { flow, cookie: 'b2c.sid removed' });
 
         if (!this.client || !this.oidc) {
           res.redirect('/');
           return;
         }
 
-        res.redirect(
-          this.client.endSessionUrl({
-            id_token_hint: idTokenHint,
-            post_logout_redirect_uri: this.oidc.postLogoutRedirectUri,
-          }),
-        );
+        const endSessionUrl = this.client.endSessionUrl({
+          id_token_hint: idTokenHint,
+          post_logout_redirect_uri: this.oidc.postLogoutRedirectUri,
+        });
+
+        authFlow('11. B2C SIGN-OUT', {
+          flow,
+          endpoint: this.client.issuer.metadata.end_session_endpoint,
+          id_token_hint: idTokenHint ? 'sent' : 'absent',
+          post_logout_redirect_uri: this.oidc.postLogoutRedirectUri,
+        });
+
+        res.redirect(endSessionUrl);
       });
     });
   }

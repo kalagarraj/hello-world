@@ -84,6 +84,45 @@ The discovery document is derived as
 Set `B2C_DISCOVERY_URL` explicitly for custom domains, custom policies, or
 `*.ciamlogin.com` tenants.
 
+## Watching the flow
+
+Every step of the sign-in and authorization flow is traced to the console under
+the `AuthFlow` context. A full login, one protected page view and a sign-out
+look like this:
+
+```
+[AuthFlow] AUTHZ DENY          flow=SijW5m0w route=GET /welcome reason=no authenticated session redirect=/?error=signin_required
+[AuthFlow] 1. LOGIN START      flow=PaBS-zyh endpoint=https://.../authorize scope=openid profile email offline_access pkce=S256
+[AuthFlow] 2. CALLBACK         flow=PaBS-zyh code=received state=returned
+[AuthFlow] 3. TOKEN EXCHANGE   flow=PaBS-zyh endpoint=https://.../token auth_method=client_secret_post
+[AuthFlow] 4. TOKENS RECEIVED  flow=PaBS-zyh id_token=yes(909 chars) access_token=yes(17 chars) refresh_token=yes(12 chars) expires_in=3600
+[AuthFlow] 5. ID TOKEN VALID   flow=PaBS-zyh iss=... aud=... sub=... claims=[oid, name, given_name, family_name, emails, idp, tfp, ...]
+[AuthFlow] 6. USER MAPPED      flow=PaBS-zyh name=Ada Lovelace email=ada@example.com idp=google.com policy=B2C_1_signupsignin
+[AuthFlow] 7. SESSION WRITE    user=Ada Lovelace id=99999999-...
+[AuthFlow] 8. LOGIN COMPLETE   flow=PaBS-zyh -> ct0lAp5S session=regenerated (fixation defence) authenticated=true next=/welcome
+[AuthFlow] SESSION READ        user=Ada Lovelace
+[AuthFlow] AUTHZ ALLOW         flow=ct0lAp5S route=GET /welcome user=Ada Lovelace
+[AuthFlow] 9. LOGOUT START     flow=ct0lAp5S user=Ada Lovelace
+[AuthFlow] 10. SESSION CLEARED flow=ct0lAp5S cookie=b2c.sid removed
+[AuthFlow] 11. B2C SIGN-OUT    flow=ct0lAp5S endpoint=https://.../logout id_token_hint=sent post_logout_redirect_uri=http://localhost:3000/
+```
+
+Reading it:
+
+* **Steps 1-8 are authentication** (proving who the user is), and the
+  `AUTHZ ALLOW` / `AUTHZ DENY` lines are **authorization** (deciding whether this
+  request may proceed). `SESSION READ` appears once per request, where the
+  session cookie is turned back into a user.
+* `flow=` correlates the legs of one sign-in. It is derived from the session id,
+  which Passport regenerates at login to defeat session fixation — step 8 prints
+  both halves so the chain stays followable.
+* Nothing secret is printed. Authorization codes, PKCE verifiers, the client
+  secret and the tokens themselves are reported as presence and length only.
+  Claim *values* are logged, since the welcome page displays them anyway; drop
+  step 6 if that is too much for your environment.
+
+Set `AUTH_TRACE=false` to turn the whole trace off.
+
 ## Routes
 
 | Route | Description |
