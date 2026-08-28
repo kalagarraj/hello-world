@@ -220,6 +220,14 @@ would let anyone on it read and forge session cookies; and append-only
 persistence is on, so `docker compose restart` keeps sessions the way Azure does
 when the app restarts.
 
+The image is `redis:8-alpine`. Redis 8 absorbed Redis Stack, so JSON, the query
+engine, time series and the probabilistic types are part of core -- there is no
+reason to reach for `redis/redis-stack-server`, whose maintenance releases ended
+in December 2025 and which is roughly seven times the download. Sessions use
+none of that either way: `connect-redis` only issues `SET`, `GET`, `DEL`,
+`EXPIRE` and `TTL`, which behave identically on the older Redis versions the
+Azure tiers run, so the local/Azure version gap does not affect this app.
+
 The local URL is `redis://` (plaintext) while Azure is `rediss://` (TLS). That
 difference is carried entirely by the URL scheme -- no code or config branch.
 

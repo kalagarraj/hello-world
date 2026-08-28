@@ -7,7 +7,10 @@
 
 services:
   redis:
-    image: redis:7-alpine
+    # Redis 8 absorbed Redis Stack: JSON, search, time series and probabilistic
+    # types are built into core, so redis-stack-server is no longer needed
+    # (its maintenance releases ended in December 2025).
+    image: redis:8-alpine
     container_name: b2c-redis
     # Bound to loopback only: an unauthenticated Redis reachable from the
     # network would let anyone on it read and forge session data.
