@@ -1,6 +1,6 @@
 import { PassportStrategy } from '@nestjs/passport';
 import type { Request } from 'express';
-import { Client, Strategy, TokenSet } from 'openid-client';
+import { Client, Strategy, TokenSet, generators } from 'openid-client';
 
 import { authFlow, flowId, tokenSummary } from './auth-flow.logger';
 import type { OidcConfig } from './oidc.config';
@@ -13,6 +13,9 @@ import { AppUser, toAppUser } from './user.model';
  * and hands the resulting claims to `validate()`.
  */
 export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
+  /** Where openid-client keeps state / nonce / code_verifier mid-flow. */
+  private static readonly SESSION_KEY = 'oidc:b2c';
+
   constructor(
     private readonly client: Client,
     private readonly oidc: OidcConfig,
@@ -26,6 +29,9 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
       // B2C advertises S256 support; PKCE protects the code even though this
       // is a confidential client.
       usePKCE: 'S256',
+      // Pinned so the trace can read back the PKCE material openid-client
+      // stashes here between the two legs of the flow.
+      sessionKey: OidcStrategy.SESSION_KEY,
       // Gives validate() the request, so the token-exchange steps carry the
       // same correlation id as the redirect legs.
       passReqToCallback: true,
@@ -44,28 +50,70 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
     // The same strategy handles both legs: the outbound redirect, and the
     // return trip carrying ?code=.
     if (req.query?.code || req.query?.error) {
+      // Read before delegating: openid-client consumes this on the way through.
+      const pending = this.pendingAuth(req);
+
       authFlow('2. CALLBACK', {
         flow: flowId(req),
         code: req.query.code ? 'received' : 'absent',
-        state: req.query.state ? 'returned' : 'absent',
+        state: req.query.state === pending.state ? 'matches sent value' : 'MISMATCH',
         error: req.query.error ?? undefined,
       });
       authFlow('3. TOKEN EXCHANGE', {
         flow: flowId(req),
         endpoint: this.client.issuer.metadata.token_endpoint,
         auth_method: this.oidc.clientSecret ? 'client_secret_post' : 'none (PKCE only)',
+        code_verifier: pending.code_verifier
+          ? `replayed (${pending.code_verifier.length} chars, proves same client)`
+          : 'absent',
+        nonce: pending.nonce
+          ? 'checked against id_token'
+          : 'not sent (PKCE covers code interception)',
       });
-    } else {
-      authFlow('1. LOGIN START', {
-        flow: flowId(req),
-        endpoint: this.client.issuer.metadata.authorization_endpoint,
-        scope: this.oidc.scope,
-        redirect_uri: this.oidc.redirectUri,
-        pkce: 'S256',
-      });
+
+      super.authenticate(req, authorizationParams);
+      return;
     }
 
+    authFlow('1. LOGIN START', {
+      flow: flowId(req),
+      endpoint: this.client.issuer.metadata.authorization_endpoint,
+      scope: this.oidc.scope,
+      redirect_uri: this.oidc.redirectUri,
+    });
+
+    // Builds the authorization URL and stores state/nonce/code_verifier.
     super.authenticate(req, authorizationParams);
+
+    const pending = this.pendingAuth(req);
+    authFlow('1b. PKCE GENERATED', {
+      flow: flowId(req),
+      // The verifier is the secret half and stays in the session; only its
+      // SHA-256 hash (the challenge) travels to B2C in the redirect URL.
+      code_verifier: pending.code_verifier
+        ? `kept in session (${pending.code_verifier.length} chars)`
+        : 'none',
+      code_challenge: pending.code_verifier
+        ? generators.codeChallenge(pending.code_verifier)
+        : 'none',
+      code_challenge_method: 'S256',
+      state: pending.state ? 'sent' : 'none',
+      nonce: pending.nonce ? 'sent' : 'not sent (PKCE used instead)',
+    });
+  }
+
+  /** The state / nonce / code_verifier openid-client is holding mid-flow. */
+  private pendingAuth(req: Request): {
+    state?: string;
+    nonce?: string;
+    code_verifier?: string;
+  } {
+    const store = req.session as unknown as Record<string, unknown> | undefined;
+    return (store?.[OidcStrategy.SESSION_KEY] ?? {}) as {
+      state?: string;
+      nonce?: string;
+      code_verifier?: string;
+    };
   }
 
   /**

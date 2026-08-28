@@ -92,9 +92,10 @@ look like this:
 
 ```
 [AuthFlow] AUTHZ DENY          flow=SijW5m0w route=GET /welcome reason=no authenticated session redirect=/?error=signin_required
-[AuthFlow] 1. LOGIN START      flow=PaBS-zyh endpoint=https://.../authorize scope=openid profile email offline_access pkce=S256
-[AuthFlow] 2. CALLBACK         flow=PaBS-zyh code=received state=returned
-[AuthFlow] 3. TOKEN EXCHANGE   flow=PaBS-zyh endpoint=https://.../token auth_method=client_secret_post
+[AuthFlow] 1. LOGIN START      flow=PaBS-zyh endpoint=https://.../authorize scope=openid profile email offline_access
+[AuthFlow] 1b. PKCE GENERATED  flow=PaBS-zyh code_verifier=kept in session (43 chars) code_challenge=nFiZDblKQO_guTGUhDB1Di95sPfJh_3ijAxLPSCJXVk code_challenge_method=S256 state=sent
+[AuthFlow] 2. CALLBACK         flow=PaBS-zyh code=received state=matches sent value
+[AuthFlow] 3. TOKEN EXCHANGE   flow=PaBS-zyh endpoint=https://.../token auth_method=client_secret_post code_verifier=replayed (43 chars, proves same client)
 [AuthFlow] 4. TOKENS RECEIVED  flow=PaBS-zyh id_token=yes(909 chars) access_token=yes(17 chars) refresh_token=yes(12 chars) expires_in=3600
 [AuthFlow] 5. ID TOKEN VALID   flow=PaBS-zyh iss=... aud=... sub=... claims=[oid, name, given_name, family_name, emails, idp, tfp, ...]
 [AuthFlow] 6. USER MAPPED      flow=PaBS-zyh name=Ada Lovelace email=ada@example.com idp=google.com policy=B2C_1_signupsignin
@@ -116,6 +117,14 @@ Reading it:
 * `flow=` correlates the legs of one sign-in. It is derived from the session id,
   which Passport regenerates at login to defeat session fixation — step 8 prints
   both halves so the chain stays followable.
+* **PKCE is shown end to end.** Step 1b prints the `code_challenge` actually
+  sent to B2C — the SHA-256 hash of a one-time verifier — and step 3 shows that
+  verifier being replayed at the token endpoint. That pairing is what proves the
+  code is being redeemed by the same client that requested it, so an intercepted
+  authorization code is useless on its own. The verifier is the secret half and
+  never leaves the session, so only its length is logged. Where PKCE is in play
+  openid-client omits the nonce, and the trace says so rather than leaving a
+  silent gap.
 * Nothing secret is printed. Authorization codes, PKCE verifiers, the client
   secret and the tokens themselves are reported as presence and length only.
   Claim *values* are logged, since the welcome page displays them anyway; drop
