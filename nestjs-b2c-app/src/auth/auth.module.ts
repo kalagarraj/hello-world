@@ -39,13 +39,21 @@ const oidcClientProvider: Provider = {
     const issuer = await Issuer.discover(oidc.discoveryUrl);
     logger.log(`Discovered Azure AD B2C issuer ${issuer.issuer}`);
 
+    // A registration B2C treats as public rejects a secret at the token
+    // endpoint (AADB2C90084), so authenticate with `none` and let PKCE carry
+    // the proof. With a secret present the client stays confidential.
+    const isConfidential = Boolean(oidc.clientSecret);
+    logger.log(
+      `Using a ${isConfidential ? 'confidential' : 'public'} client for ${oidc.clientId}`,
+    );
+
     return new issuer.Client({
       client_id: oidc.clientId,
-      client_secret: oidc.clientSecret,
+      ...(isConfidential ? { client_secret: oidc.clientSecret } : {}),
       redirect_uris: [oidc.redirectUri],
       post_logout_redirect_uris: [oidc.postLogoutRedirectUri],
       response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_post',
+      token_endpoint_auth_method: isConfidential ? 'client_secret_post' : 'none',
     });
   },
 };

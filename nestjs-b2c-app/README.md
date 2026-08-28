@@ -55,6 +55,30 @@ shows a setup page instead of the login button.
    | `B2C_POST_LOGOUT_REDIRECT_URI` | `http://localhost:3000/` |
    | `SESSION_SECRET` | `openssl rand -base64 32` |
 
+### Confidential vs public client
+
+By default the app runs as a **confidential client**: it sends `B2C_CLIENT_SECRET`
+to the token endpoint. That is the right shape for a server-rendered app, since
+the secret never leaves the server.
+
+It only works if B2C considers the registration confidential. If the redirect URI
+is registered under **Mobile and desktop applications**, or **Allow public client
+flows** is set to *Yes*, B2C classifies the app as public and rejects the secret:
+
+```
+AADB2C90084: Public clients should not send a client_secret when redeeming
+a publicly acquired grant.
+```
+
+Two ways out:
+
+* **Preferred** — make the registration confidential: in *Authentication*, register
+  `http://localhost:3000/auth/callback` under the **Web** platform (remove it from
+  *Mobile and desktop applications*) and set *Allow public client flows* to **No**.
+* **Or** leave `B2C_CLIENT_SECRET` empty. The app then configures a public client
+  with `token_endpoint_auth_method: 'none'` and relies on PKCE alone. Startup logs
+  which mode is in effect.
+
 The discovery document is derived as
 `https://<tenant>.b2clogin.com/<tenant>.onmicrosoft.com/<policy>/v2.0/.well-known/openid-configuration`.
 Set `B2C_DISCOVERY_URL` explicitly for custom domains, custom policies, or

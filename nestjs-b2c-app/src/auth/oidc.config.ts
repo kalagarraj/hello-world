@@ -8,7 +8,14 @@ import { ConfigService } from '@nestjs/config';
 export interface OidcConfig {
   discoveryUrl: string;
   clientId: string;
-  clientSecret: string;
+  /**
+   * Omitted for app registrations B2C treats as public clients (redirect URI
+   * registered under "Mobile and desktop applications", or "Allow public client
+   * flows" set to Yes). Such a registration rejects a secret at the token
+   * endpoint with AADB2C90084, so the client is configured without one and
+   * relies on PKCE alone.
+   */
+  clientSecret?: string;
   redirectUri: string;
   postLogoutRedirectUri: string;
   scope: string;
@@ -54,7 +61,6 @@ export function loadOidcConfig(config: ConfigService): OidcConfig | null {
   const missing = [
     !discoveryUrl && 'B2C_DISCOVERY_URL (or B2C_TENANT_NAME + B2C_POLICY_NAME)',
     !clientId && 'B2C_CLIENT_ID',
-    !clientSecret && 'B2C_CLIENT_SECRET',
   ].filter(Boolean);
 
   if (missing.length > 0) {
@@ -65,12 +71,20 @@ export function loadOidcConfig(config: ConfigService): OidcConfig | null {
     return null;
   }
 
+  if (!clientSecret) {
+    logger.log(
+      'No B2C_CLIENT_SECRET set — configuring a public client (PKCE only). ' +
+        'Register the redirect URI under the "Web" platform and set a secret ' +
+        'to run as a confidential client instead.',
+    );
+  }
+
   const baseUrl = config.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
 
   return {
     discoveryUrl: discoveryUrl as string,
     clientId: clientId as string,
-    clientSecret: clientSecret as string,
+    clientSecret: clientSecret || undefined,
     redirectUri:
       config.get<string>('B2C_REDIRECT_URI') ?? `${baseUrl}/auth/callback`,
     postLogoutRedirectUri:
