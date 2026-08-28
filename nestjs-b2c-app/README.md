@@ -241,15 +241,21 @@ after 5 attempts. Is the local container running? Start it with `npm run redis:u
 
 ### Azure Cosmos DB emulator (optional)
 
-`docker-compose.yml` also carries the Cosmos DB emulator, behind a Compose
-profile so it does **not** start with a plain `docker compose up` -- nothing in
-this app uses Cosmos, and the emulator is far heavier than Redis.
+The emulator lives in its own file, `docker-compose.cosmos.yml`, separate from
+the Redis stack -- nothing in this app uses Cosmos, and the emulator is far
+heavier than Redis, so it should not share a lifecycle with it.
 
 ```bash
-npm run cosmos:up      # docker compose --profile cosmos up -d cosmos
+npm run cosmos:up      # docker compose -f docker-compose.cosmos.yml up -d
 npm run cosmos:logs    # follow startup, which takes a while on first run
 npm run cosmos:down    # stop and remove it
 ```
+
+The file declares its own Compose project name (`b2c-cosmos`). Both files
+otherwise inherit the project name from the directory, and Compose would then
+treat each stack's containers as orphans of the other -- `docker compose down`
+on Redis would warn about the emulator, and vice versa. Separate names keep
+`npm run redis:down` and `npm run cosmos:down` fully independent.
 
 | What | Where |
 | --- | --- |
@@ -268,18 +274,22 @@ an emulator, and a config that accepts it in a deployed environment is a bug.
 
 Notes on the setup:
 
-* It runs with `--protocol http`. The HTTPS mode generates a self-signed
-  certificate you would then have to export and trust in every client, which is
-  a lot of ceremony for local development. Switch to `https` only when testing
-  TLS behaviour specifically.
+* It runs with `--protocol http`, which is the emulator's default. HTTPS
+  generates a self-signed certificate every client must then trust.
+  **The .NET and Java SDKs require HTTPS** -- if you use either, switch the
+  command to `['--protocol', 'https']` and publish port 8080 as well. With the
+  `/data` volume attached the emulator regenerates its certificate at startup,
+  so persistence and HTTPS work together.
+* Data persists in a `cosmos-data` volume mounted at `/data`, so databases and
+  containers survive a restart. `npm run cosmos:down` removes the container but
+  keeps the volume; add `-v` to wipe it.
+* To seed on first start, mount a directory of `cosmoshell` commands at `/init`
+  and set `ENABLE_INIT_DATA=true` -- both are stubbed as comments in the file.
 * Like Redis, the ports publish to `127.0.0.1` only.
 * This is the `vnext` Linux emulator, which runs natively on Apple silicon and
   ARM as well as x86, unlike the older emulator image.
 * It serves the **NoSQL API**. If you need the MongoDB or Cassandra API, check
   current support before relying on this image.
-* **No data volume is configured**, so everything is lost when the container is
-  removed. The emulator's persistence path was not verified when this was
-  written -- confirm it against current docs before adding a volume.
 
 ### Pointing an Azure environment at Redis
 

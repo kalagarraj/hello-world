@@ -1,10 +1,12 @@
 # Local development dependencies. Azure Cache for Redis stands in for this in
 # every deployed environment -- see README "Session storage per environment".
 #
-#   docker compose up -d                    start Redis
-#   docker compose down                     stop it, keeping sessions
-#   docker compose down -v                  stop it and wipe all sessions
-#   docker compose --profile cosmos up -d   also start the Cosmos DB emulator
+#   docker compose up -d          start Redis
+#   docker compose down           stop it, keeping sessions
+#   docker compose down -v        stop it and wipe all sessions
+#
+# The Cosmos DB emulator lives in docker-compose.cosmos.yml, as its own project
+# with its own lifecycle -- see README.
 
 services:
   redis:
@@ -27,30 +29,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    restart: unless-stopped
-
-  # Azure Cosmos DB emulator (NoSQL API). Behind a profile because nothing in
-  # this app uses Cosmos yet and the emulator is far heavier than Redis, so it
-  # should not start with a plain `docker compose up`:
-  #
-  #   docker compose --profile cosmos up -d cosmos
-  #
-  # Endpoint  http://localhost:8081
-  # Explorer  http://localhost:1234
-  # Key       the fixed, public emulator key -- see README, not a secret.
-  cosmos:
-    profiles: ['cosmos']
-    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-latest
-    container_name: b2c-cosmos
-    # The vnext emulator can serve plain HTTP, which avoids having to trust the
-    # self-signed certificate the HTTPS mode generates. Swap to https only if
-    # you are specifically testing TLS behaviour.
-    command: ['--protocol', 'http']
-    ports:
-      # Same loopback-only reasoning as Redis: the emulator is unauthenticated
-      # in practice, since its key is public.
-      - '127.0.0.1:8081:8081'   # gateway / data plane
-      - '127.0.0.1:1234:1234'   # Data Explorer UI
     restart: unless-stopped
 
 volumes:
