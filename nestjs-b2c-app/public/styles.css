@@ -123,3 +123,8 @@ code { padding: .1rem .35rem; }
   .card { padding: 1.75rem 1.25rem; }
   .details__row { grid-template-columns: 1fr; gap: .15rem; }
 }
+
+.section { margin: 2rem 0 .75rem; font-size: 1.05rem; }
+.note { color: var(--muted); font-size: .9rem; margin: 1rem 0 0; }
+.steps code { font-size: .8rem; }
+.alert code { font-size: .8rem; }

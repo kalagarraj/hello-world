@@ -21,6 +21,21 @@ export interface OidcConfig {
   scope: string;
 }
 
+/**
+ * What the app could and could not work out from the environment. Drives the
+ * /setup page so it can name the variables that are actually missing.
+ */
+export interface OidcStatus {
+  configured: boolean;
+  missing: string[];
+  mode: 'confidential' | 'public' | null;
+  discoveryUrl?: string;
+  redirectUri: string;
+  postLogoutRedirectUri: string;
+}
+
+export const OIDC_INSPECTION = 'OIDC_INSPECTION';
+export const OIDC_STATUS = 'OIDC_STATUS';
 export const OIDC_CONFIG = 'OIDC_CONFIG';
 export const OIDC_CLIENT = 'OIDC_CLIENT';
 export const OIDC_STRATEGY = 'OIDC_STRATEGY';
@@ -48,27 +63,50 @@ export function buildDiscoveryUrl(config: ConfigService): string | undefined {
 }
 
 /**
- * Returns null (instead of throwing) when B2C is not configured yet, so the app
- * still boots and can render a "finish your setup" page.
+ * Inspects the environment without throwing, so the app still boots when B2C is
+ * only half-configured and /setup can say exactly what is outstanding.
+ *
+ * B2C_CLIENT_SECRET is deliberately not required: a registration B2C treats as
+ * a public client must not send one.
  */
-export function loadOidcConfig(config: ConfigService): OidcConfig | null {
+export function inspectOidcConfig(config: ConfigService): {
+  config: OidcConfig | null;
+  status: OidcStatus;
+} {
   const logger = new Logger('OidcConfig');
 
   const discoveryUrl = buildDiscoveryUrl(config);
   const clientId = config.get<string>('B2C_CLIENT_ID');
   const clientSecret = config.get<string>('B2C_CLIENT_SECRET');
 
+  const baseUrl = config.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
+  const redirectUri =
+    config.get<string>('B2C_REDIRECT_URI') ?? `${baseUrl}/auth/callback`;
+  const postLogoutRedirectUri =
+    config.get<string>('B2C_POST_LOGOUT_REDIRECT_URI') ?? `${baseUrl}/`;
+
   const missing = [
     !discoveryUrl && 'B2C_DISCOVERY_URL (or B2C_TENANT_NAME + B2C_POLICY_NAME)',
     !clientId && 'B2C_CLIENT_ID',
-  ].filter(Boolean);
+  ].filter((entry): entry is string => Boolean(entry));
 
   if (missing.length > 0) {
     logger.warn(
       `Azure AD B2C is not configured — missing ${missing.join(', ')}. ` +
         'The app will start, but signing in is disabled until you fill in .env.',
     );
-    return null;
+
+    return {
+      config: null,
+      status: {
+        configured: false,
+        missing,
+        mode: null,
+        discoveryUrl,
+        redirectUri,
+        postLogoutRedirectUri,
+      },
+    };
   }
 
   if (!clientSecret) {
@@ -79,17 +117,23 @@ export function loadOidcConfig(config: ConfigService): OidcConfig | null {
     );
   }
 
-  const baseUrl = config.get<string>('APP_BASE_URL') ?? 'http://localhost:3000';
-
   return {
-    discoveryUrl: discoveryUrl as string,
-    clientId: clientId as string,
-    clientSecret: clientSecret || undefined,
-    redirectUri:
-      config.get<string>('B2C_REDIRECT_URI') ?? `${baseUrl}/auth/callback`,
-    postLogoutRedirectUri:
-      config.get<string>('B2C_POST_LOGOUT_REDIRECT_URI') ?? `${baseUrl}/`,
-    scope:
-      config.get<string>('B2C_SCOPE') ?? 'openid profile email offline_access',
+    config: {
+      discoveryUrl: discoveryUrl as string,
+      clientId: clientId as string,
+      clientSecret: clientSecret || undefined,
+      redirectUri,
+      postLogoutRedirectUri,
+      scope:
+        config.get<string>('B2C_SCOPE') ?? 'openid profile email offline_access',
+    },
+    status: {
+      configured: true,
+      missing: [],
+      mode: clientSecret ? 'confidential' : 'public',
+      discoveryUrl,
+      redirectUri,
+      postLogoutRedirectUri,
+    },
   };
 }

@@ -1,17 +1,75 @@
 <p class="eyebrow">Configuration</p>
-<h1>Finish the Azure AD B2C setup</h1>
-<p class="lede">
-  Copy <code>.env.example</code> to <code>.env</code> and fill in the values from
-  your B2C tenant, then restart the app.
+
+{{#if isConfigured}}
+  <h1>Azure AD B2C is configured</h1>
+  <p class="lede">
+    The app read a complete configuration from the environment and is running as
+    a <strong>{{mode}}</strong> client.
+  </p>
+  <p class="alert alert--ok">Nothing to do here — head back and sign in.</p>
+{{else}}
+  <h1>Finish the Azure AD B2C setup</h1>
+  <p class="lede">
+    Copy <code>.env.example</code> to <code>.env</code>, fill in the values from
+    your B2C tenant, then restart the app.
+  </p>
+
+  <p class="alert alert--warn">
+    Still missing:
+    {{#each missing}}<code>{{this}}</code>{{#unless @last}}, {{/unless}}{{/each}}
+  </p>
+{{/if}}
+
+<h2 class="section">In the Azure portal</h2>
+<ol class="steps">
+  <li>
+    Create a sign-up/sign-in <strong>user flow</strong> (e.g.
+    <code>B2C_1_signupsignin</code>) and put its name in
+    <code>B2C_POLICY_NAME</code>. Under <em>Application claims</em>, tick
+    <em>Email Addresses</em>, <em>Display Name</em>, <em>Given Name</em>,
+    <em>Surname</em>, <em>Identity Provider</em> and <em>User's Object ID</em> —
+    the welcome page reads exactly those claims.
+  </li>
+  <li>
+    Take the tenant name from <em>Azure AD B2C &rarr; Overview &rarr; Domain
+    name</em> (the part before <code>.onmicrosoft.com</code>) into
+    <code>B2C_TENANT_NAME</code>.
+  </li>
+  <li>
+    Register an app and copy its <em>Application (client) ID</em> into
+    <code>B2C_CLIENT_ID</code>.
+  </li>
+  <li>
+    Under <em>Authentication</em>, add <code>{{redirectUri}}</code> as a redirect
+    URI on the <strong>Web</strong> platform. Registering it under
+    <em>Mobile and desktop applications</em> — or setting <em>Allow public client
+    flows</em> to <em>Yes</em> — makes B2C treat the app as a public client, which
+    then rejects a client secret with <code>AADB2C90084</code>.
+  </li>
+  <li>
+    Create a <strong>client secret</strong> under <em>Certificates &amp;
+    secrets</em> and copy the <em>Value</em> (shown only once, and not the
+    <em>Secret ID</em>) into <code>B2C_CLIENT_SECRET</code>.
+    <strong>Optional:</strong> leave it empty to run as a public client, where the
+    authorization code is redeemed with PKCE alone.
+  </li>
+  <li>
+    Add <code>{{postLogoutRedirectUri}}</code> as a
+    <strong>post logout redirect URI</strong> so sign-out returns here.
+  </li>
+</ol>
+
+<p class="note">
+  No implicit-grant settings are needed — this app uses the authorization code
+  flow, so leave <em>Access tokens</em> and <em>ID tokens</em> unticked.
 </p>
 
-<ol class="steps">
-  <li>Create a sign-up/sign-in <strong>user flow</strong> (e.g. <code>B2C_1_signupsignin</code>).</li>
-  <li>Register a <strong>Web</strong> app and add the redirect URI <code>http://localhost:3000/auth/callback</code>.</li>
-  <li>Enable <strong>ID tokens</strong> for the implicit grant is <em>not</em> needed — this app uses the authorization code flow.</li>
-  <li>Create a <strong>client secret</strong> and set <code>B2C_CLIENT_ID</code> / <code>B2C_CLIENT_SECRET</code>.</li>
-  <li>Add <code>http://localhost:3000/</code> as a <strong>front-channel logout / post logout redirect URI</strong>.</li>
-</ol>
+{{#if discoveryUrl}}
+  <details class="claims">
+    <summary>Discovery document the app will read at startup</summary>
+    <pre>{{discoveryUrl}}</pre>
+  </details>
+{{/if}}
 
 <div class="actions">
   <a class="button button--ghost" href="/">Back to home</a>

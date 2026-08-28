@@ -8,9 +8,12 @@ import { AuthenticatedGuard } from './authenticated.guard';
 import {
   OIDC_CLIENT,
   OIDC_CONFIG,
+  OIDC_INSPECTION,
+  OIDC_STATUS,
   OIDC_STRATEGY,
-  loadOidcConfig,
+  inspectOidcConfig,
   type OidcConfig,
+  type OidcStatus,
 } from './oidc.config';
 import { OidcAuthGuard } from './oidc-auth.guard';
 import { OidcStrategy } from './oidc.strategy';
@@ -18,10 +21,26 @@ import { SessionSerializer } from './session.serializer';
 
 const logger = new Logger('AuthModule');
 
+type OidcInspection = ReturnType<typeof inspectOidcConfig>;
+
+/** Read the environment once; OIDC_CONFIG and OIDC_STATUS both derive from it. */
+const oidcInspectionProvider: Provider = {
+  provide: OIDC_INSPECTION,
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => inspectOidcConfig(config),
+};
+
 const oidcConfigProvider: Provider = {
   provide: OIDC_CONFIG,
-  inject: [ConfigService],
-  useFactory: (config: ConfigService) => loadOidcConfig(config),
+  inject: [OIDC_INSPECTION],
+  useFactory: (inspection: OidcInspection): OidcConfig | null =>
+    inspection.config,
+};
+
+const oidcStatusProvider: Provider = {
+  provide: OIDC_STATUS,
+  inject: [OIDC_INSPECTION],
+  useFactory: (inspection: OidcInspection): OidcStatus => inspection.status,
 };
 
 /**
@@ -73,13 +92,15 @@ const oidcStrategyProvider: Provider = {
   imports: [ConfigModule, PassportModule.register({ session: true })],
   controllers: [AuthController],
   providers: [
+    oidcInspectionProvider,
     oidcConfigProvider,
+    oidcStatusProvider,
     oidcClientProvider,
     oidcStrategyProvider,
     SessionSerializer,
     OidcAuthGuard,
     AuthenticatedGuard,
   ],
-  exports: [OIDC_CONFIG, AuthenticatedGuard],
+  exports: [OIDC_CONFIG, OIDC_STATUS, AuthenticatedGuard],
 })
 export class AuthModule {}

@@ -2,7 +2,12 @@ import { Controller, Get, Inject, Optional, Query, Req, Render, UseGuards } from
 import type { Request } from 'express';
 
 import { AuthenticatedGuard } from '../auth/authenticated.guard';
-import { OIDC_CONFIG, type OidcConfig } from '../auth/oidc.config';
+import {
+  OIDC_CONFIG,
+  OIDC_STATUS,
+  type OidcConfig,
+  type OidcStatus,
+} from '../auth/oidc.config';
 import type { AppUser } from '../auth/user.model';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -13,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export class HomeController {
   constructor(
     @Optional() @Inject(OIDC_CONFIG) private readonly oidc: OidcConfig | null,
+    @Optional() @Inject(OIDC_STATUS) private readonly status: OidcStatus | null,
   ) {}
 
   @Get()
@@ -54,7 +60,15 @@ export class HomeController {
   @Get('setup')
   @Render('setup')
   setup() {
-    return { title: 'Finish setup', isConfigured: this.oidc !== null };
+    return {
+      title: 'Finish setup',
+      isConfigured: this.oidc !== null,
+      missing: this.status?.missing ?? [],
+      mode: this.status?.mode,
+      discoveryUrl: this.status?.discoveryUrl,
+      redirectUri: this.status?.redirectUri ?? 'http://localhost:3000/auth/callback',
+      postLogoutRedirectUri: this.status?.postLogoutRedirectUri ?? 'http://localhost:3000/',
+    };
   }
 
   @Get('healthz')
