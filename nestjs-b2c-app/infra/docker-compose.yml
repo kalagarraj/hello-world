@@ -1,0 +1,68 @@
+# Local development dependencies. Azure Cache for Redis stands in for this in
+# every deployed environment -- see README "Session storage per environment".
+#
+# Run from the app root:
+#   npm run docker:up      build and start the app plus Redis
+#   npm run redis:up       start only Redis (for `npm run start:dev` on the host)
+#   npm run docker:down    stop everything, keeping sessions
+#
+# The Cosmos DB emulator lives in docker-compose.cosmos.yml, as its own project
+# with its own lifecycle -- see README.
+
+# Pinned explicitly. Compose otherwise derives the project name from the
+# directory holding this file, which since the move to infra/ would name every
+# container and volume "infra".
+name: b2c-local
+
+services:
+  app:
+    build:
+      # The build context is the app root, so package.json, src, views and
+      # public are all in scope; .dockerignore lives there because Docker only
+      # reads it from the context root.
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: b2c-app
+    # Reap zombies and forward signals, so Ctrl-C and `docker stop` reach Node.
+    init: true
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      PORT: '3000'
+      # Overrides whatever .env says: inside the Compose network Redis answers
+      # to its service name, and localhost would be the app's own container.
+      REDIS_URL: redis://redis:6379
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      # The app connects to Redis during bootstrap and fails fast if it cannot,
+      # so wait for the healthcheck rather than racing it.
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    # Redis 8 absorbed Redis Stack: JSON, search, time series and probabilistic
+    # types are built into core, so redis-stack-server is no longer needed
+    # (its maintenance releases ended in December 2025).
+    image: redis:8-alpine
+    container_name: b2c-redis
+    # Bound to loopback only: an unauthenticated Redis reachable from the
+    # network would let anyone on it read and forge session data.
+    ports:
+      - '127.0.0.1:6379:6379'
+    # Persist to disk so sessions survive `docker compose restart`, which is
+    # how Azure Cache for Redis behaves when the app restarts.
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  redis-data:

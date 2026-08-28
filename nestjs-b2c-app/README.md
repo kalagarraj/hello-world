@@ -152,6 +152,10 @@ src/
   session/
     session.config.ts        APP_ENV / REDIS_URL -> session settings
     session.factory.ts       picks in-process or Redis store, fails fast
+infra/
+  Dockerfile                 multi-stage build for the app image
+  docker-compose.yml         app + Redis (project b2c-local)
+  docker-compose.cosmos.yml  Cosmos DB emulator (project b2c-cosmos)
   auth/
     oidc.config.ts           env -> OidcConfig (discovery URL, client, scopes)
     auth.module.ts           discovery at startup -> Client -> Strategy providers
@@ -186,6 +190,43 @@ in production as users being randomly signed out. Failing the deploy is better
 than shipping that. `SESSION_ALLOW_MEMORY_STORE=true` overrides it for a
 throwaway environment, and logs a warning every boot.
 
+### Running the app itself in a container
+
+`infra/Dockerfile` builds the app; `npm run docker:up` builds it and starts it
+alongside Redis:
+
+```bash
+npm run docker:up      # build + start app and redis
+npm run docker:logs    # follow the app
+npm run docker:down    # stop both
+```
+
+The app is then on http://localhost:3000 exactly as before, so the B2C redirect
+URIs registered for local development keep working -- the browser still talks to
+`localhost:3000`, only the process moved.
+
+Worth knowing about the setup:
+
+* **Multi-stage build.** TypeScript is compiled in one stage with dev
+  dependencies, production dependencies are installed in another, and the
+  runtime image takes only `dist`, `views`, `public` and the production
+  `node_modules`. No compiler or test tooling ships in the final image.
+* `views` and `public` sit *beside* `dist`, not inside it, because `main.js`
+  resolves them as `../views` and `../public`. Getting that wrong produces an
+  app that boots cleanly and then 500s on the first page render.
+* **`REDIS_URL` is overridden to `redis://redis:6379`** in the Compose file.
+  Inside the network Redis answers to its service name; `localhost` would be the
+  app's own container. Everything else comes from your `.env` through
+  `env_file`.
+* `.env` is in `.dockerignore`, so secrets are **not** baked into the image --
+  they are supplied at runtime.
+* The container runs as the unprivileged `node` user, and `init: true` forwards
+  signals so `docker stop` reaches Node's shutdown handlers.
+* The healthcheck calls the app's own `/healthz` using Node's global `fetch`, so
+  the image needs no `curl` or `wget`.
+* Compose waits for Redis to report healthy before starting the app, since the
+  app fails fast when Redis is unreachable.
+
 ### Running Redis locally in Docker
 
 Optional -- local development works with no container at all, since an unset
@@ -194,7 +235,7 @@ exercise the same store the deployed environments use, or to keep sessions
 across app restarts.
 
 ```bash
-npm run redis:up          # docker compose up -d redis
+npm run redis:up          # docker compose -f infra/docker-compose.yml up -d redis
 ```
 
 Then set `REDIS_URL=redis://localhost:6379` in `.env` and start the app. It logs
@@ -214,7 +255,7 @@ which store it picked at boot:
 | `npm run redis:sessions` | List the session keys currently stored |
 | `npm run redis:logs` | Tail the container logs |
 
-Two deliberate choices in `docker-compose.yml`: the port is published to
+Two deliberate choices in `infra/docker-compose.yml`: the port is published to
 `127.0.0.1` only, because an unauthenticated Redis reachable from the network
 would let anyone on it read and forge session cookies; and append-only
 persistence is on, so `docker compose restart` keeps sessions the way Azure does
@@ -241,12 +282,12 @@ after 5 attempts. Is the local container running? Start it with `npm run redis:u
 
 ### Azure Cosmos DB emulator (optional)
 
-The emulator lives in its own file, `docker-compose.cosmos.yml`, separate from
+The emulator lives in its own file, `infra/docker-compose.cosmos.yml`, separate from
 the Redis stack -- nothing in this app uses Cosmos, and the emulator is far
 heavier than Redis, so it should not share a lifecycle with it.
 
 ```bash
-npm run cosmos:up      # docker compose -f docker-compose.cosmos.yml up -d
+npm run cosmos:up      # docker compose -f infra/docker-compose.cosmos.yml up -d
 npm run cosmos:logs    # follow startup, which takes a while on first run
 npm run cosmos:down    # stop and remove it
 ```

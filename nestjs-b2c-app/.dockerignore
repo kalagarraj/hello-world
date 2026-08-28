@@ -1,0 +1,11 @@
+# Docker reads .dockerignore only from the build context root, which is the app
+# root, so this file stays here rather than moving into infra/.
+node_modules
+dist
+infra
+.env
+.git
+.gitignore
+*.tsbuildinfo
+npm-debug.log*
+README.md
