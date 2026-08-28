@@ -1,0 +1,29 @@
+<p class="eyebrow">NestJS &times; Azure AD B2C</p>
+<h1>Hello, world 👋</h1>
+<p class="lede">
+  This page is public. Sign in with your Azure AD B2C user flow to see your
+  profile on the welcome page.
+</p>
+
+{{#if error}}
+  <p class="alert alert--warn">{{error}}</p>
+{{/if}}
+
+{{#if isAuthenticated}}
+  <p class="alert alert--ok">You are already signed in as <strong>{{user.name}}</strong>.</p>
+  <div class="actions">
+    <a class="button" href="/welcome">Go to welcome page</a>
+    <a class="button button--ghost" href="/auth/logout">Sign out</a>
+  </div>
+{{else if isConfigured}}
+  <div class="actions">
+    <a class="button" href="/auth/login">Log in with Azure AD B2C</a>
+  </div>
+{{else}}
+  <p class="alert alert--warn">
+    Azure AD B2C is not configured yet, so login is disabled.
+  </p>
+  <div class="actions">
+    <a class="button" href="/setup">See setup steps</a>
+  </div>
+{{/if}}

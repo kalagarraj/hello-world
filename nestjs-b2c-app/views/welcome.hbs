@@ -1,0 +1,23 @@
+<p class="eyebrow">Signed in</p>
+<h1>Welcome, {{user.name}}!</h1>
+<p class="lede">
+  These details come from the ID token that Azure AD B2C issued for you.
+</p>
+
+<dl class="details">
+  {{#each details}}
+    <div class="details__row">
+      <dt>{{this.label}}</dt>
+      <dd>{{this.value}}</dd>
+    </div>
+  {{/each}}
+</dl>
+
+<details class="claims">
+  <summary>Raw ID token claims</summary>
+  <pre>{{claimsJson}}</pre>
+</details>
+
+<div class="actions">
+  <a class="button button--ghost" href="/auth/logout">Sign out</a>
+</div>

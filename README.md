@@ -20,3 +20,10 @@ Notes
 
 - This setup is suitable for demos and learning. For a real project, consider creating a full React app using Vite, Create React App, or similar tooling.
 # hello-world
+
+## Also in this repo
+
+- [`nestjs-b2c-app/`](nestjs-b2c-app/) — a NestJS "Hello World" that signs users
+  in against an Azure AD B2C user flow over OpenID Connect (via `openid-client`,
+  not MSAL), with a public home page and a protected welcome page showing the
+  user's details.
