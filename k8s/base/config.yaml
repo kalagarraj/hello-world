@@ -4,6 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: b2c-config
+  labels: { app.kubernetes.io/component: config }
 data:
   B2C_TENANT_NAME: contoso
   B2C_POLICY_NAME: B2C_1_signupsignin

@@ -1,0 +1,15 @@
+# One of each: a laptop gains nothing from two, and one pod per workload keeps
+# `kubectl logs` unambiguous while you are following the auth flow.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 1

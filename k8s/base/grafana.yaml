@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-provisioning
+  labels: { app.kubernetes.io/component: dashboard }
 data:
   datasources.yml: |
     apiVersion: 1
@@ -28,7 +29,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  labels: { app.kubernetes.io/name: grafana }
+  labels: { app.kubernetes.io/name: grafana, app.kubernetes.io/component: dashboard }
 spec:
   replicas: 1
   selector:
@@ -90,6 +91,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
+  labels: { app.kubernetes.io/name: grafana, app.kubernetes.io/component: dashboard }
 spec:
   selector: { app.kubernetes.io/name: grafana }
   ports:

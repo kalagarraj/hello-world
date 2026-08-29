@@ -20,6 +20,11 @@ configMapGenerator:
   - name: grafana-dashboards
     files:
       - dashboards/b2c-api-calls.json
+    # Same component label as the rest of Grafana, so `kubectl apply -l` picks
+    # the dashboard up together with the Deployment that mounts it.
+    options:
+      labels:
+        app.kubernetes.io/component: dashboard
 
 labels:
   - includeSelectors: false

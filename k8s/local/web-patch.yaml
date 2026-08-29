@@ -1,0 +1,27 @@
+# Local differences from the base, and why each one is here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          # The image exists only in this machine's Docker daemon. Left at the
+          # default, Kubernetes would try to pull it and fail with ErrImagePull.
+          imagePullPolicy: IfNotPresent
+          env:
+            # Not APP_ENV=local: that would switch the app to the in-process
+            # session store and skip Redis, which is half of what this cluster
+            # is here to prove.
+            - { name: APP_ENV, value: dev }
+            - { name: REDIS_URL, value: redis://redis:6379 }
+            # Reached over `kubectl port-forward svc/web 3000:3000`, so the
+            # redirect URI matches the http://localhost:3000/auth/callback you
+            # already registered in B2C for local development.
+            - { name: APP_BASE_URL, value: http://localhost:3000 }
+            # Anything but `local` defaults the session cookie to Secure, and a
+            # Secure cookie is dropped on plain http://localhost -- the login
+            # would appear to succeed and land back on the home page.
+            - { name: SESSION_COOKIE_SECURE, value: "false" }

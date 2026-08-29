@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          imagePullPolicy: IfNotPresent
+          # Only matters for a browser calling the API directly; the demo pages
+          # call it from the web pod, which CORS does not police.
+          env:
+            - { name: CORS_ORIGIN, value: http://localhost:3000 }

@@ -6,10 +6,16 @@ namespace, with Kustomize overlays per environment.
 ```
 k8s/
   base/                 the five workloads, plus config and an Ingress
+  local/                a cluster on your machine, applied one piece at a time
   overlays/dev/         1 replica each, in-cluster Redis
   overlays/prod/        3 web replicas, Azure Cache for Redis, no in-cluster Redis
   sync-dashboard.sh     keeps the Grafana dashboard copy honest
 ```
+
+**Deploying this for the first time? Start with [local/README.md](local/README.md).**
+It brings the stack up on kind, minikube or Docker Desktop one component at a
+time — namespace, Redis, API, web app, Prometheus, Grafana — with a check after
+each, so a failure points at one piece instead of six.
 
 The local-only emulators — Cosmos DB and Snowflake — are deliberately absent.
 They exist to avoid touching cloud services during development; deploying them
@@ -37,6 +43,31 @@ kubectl apply -k k8s/overlays/dev
 # 4. Watch it come up.
 kubectl -n b2c get pods -w
 ```
+
+## One component at a time
+
+Every resource carries an `app.kubernetes.io/component` label, and `kubectl
+apply` filters the manifests it applies by label. So the same overlay can be
+rolled out in stages rather than all at once:
+
+```bash
+kubectl apply -k k8s/overlays/dev -l app.kubernetes.io/component=cache
+kubectl apply -k k8s/overlays/dev -l app.kubernetes.io/component=api
+```
+
+| component | resources |
+| --- | --- |
+| `config` | Namespace, `b2c-config` |
+| `cache` | Redis |
+| `api` | the API |
+| `web` | the web app |
+| `metrics` | Prometheus |
+| `dashboard` | Grafana and its dashboard |
+| `ingress` | the Ingress |
+
+Applying with no selector is the same set of objects, so the staged and one-shot
+paths converge. `local/README.md` walks the whole sequence with a check at each
+step.
 
 Preview exactly what will be applied, without a cluster:
 
