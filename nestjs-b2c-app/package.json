@@ -22,7 +22,10 @@
     "redis:sessions": "docker compose -f infra/docker-compose.yml exec redis redis-cli --scan --pattern 'sess:*'",
     "cosmos:up": "docker compose -f infra/docker-compose.cosmos.yml up -d",
     "cosmos:down": "docker compose -f infra/docker-compose.cosmos.yml down",
-    "cosmos:logs": "docker compose -f infra/docker-compose.cosmos.yml logs -f"
+    "cosmos:logs": "docker compose -f infra/docker-compose.cosmos.yml logs -f",
+    "snowflake:up": "docker compose -f infra/docker-compose.snowflake.yml up -d",
+    "snowflake:down": "docker compose -f infra/docker-compose.snowflake.yml down",
+    "snowflake:logs": "docker compose -f infra/docker-compose.snowflake.yml logs -f"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

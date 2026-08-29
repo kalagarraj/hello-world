@@ -156,6 +156,7 @@ infra/
   Dockerfile                 multi-stage build for the app image
   docker-compose.yml         app + Redis (project b2c-local)
   docker-compose.cosmos.yml  Cosmos DB emulator (project b2c-cosmos)
+  docker-compose.snowflake.yml  Snowflake emulators (project b2c-snowflake)
   auth/
     oidc.config.ts           env -> OidcConfig (discovery URL, client, scopes)
     auth.module.ts           discovery at startup -> Client -> Strategy providers
@@ -346,6 +347,59 @@ Notes on the setup:
   ARM as well as x86, unlike the older emulator image.
 * It serves the **NoSQL API**. If you need the MongoDB or Cassandra API, check
   current support before relying on this image.
+
+### Snowflake emulator (optional)
+
+Real Snowflake cannot run locally -- it is closed-source SaaS with no on-prem
+build -- so this is a reimplementation, not the real engine. Treat a pass here
+as a fast inner loop and still verify against real Snowflake before shipping.
+
+```bash
+npm run snowflake:up      # docker compose -f infra/docker-compose.snowflake.yml up -d
+npm run snowflake:logs
+npm run snowflake:down
+```
+
+The default service is [fakesnow](https://github.com/tekumara/fakesnow): free,
+open source, DuckDB underneath, speaking enough of the Snowflake HTTP protocol
+for the official connectors in any language.
+
+| Setting | Value |
+| --- | --- |
+| host | `127.0.0.1` |
+| port | `64616` |
+| protocol | `http` |
+| user / password / account | `fake` / `snow` / `fakesnow` |
+
+Credentials are decorative -- any values connect. `SELECT CURRENT_VERSION()`
+returns `0.0.0`, which is a cheap assertion that a job is pointed at the
+emulator rather than at real Snowflake.
+
+Databases are in-memory unless a client asks for persistence, and that is a
+**session parameter, not an environment variable**:
+
+```python
+snowflake.connector.connect(
+    host="127.0.0.1", port=64616, protocol="http",
+    account="fakesnow", user="fake", password="snow",
+    session_parameters={"FAKESNOW_DB_PATH": "/data"},
+)
+```
+
+The compose file mounts a volume at `/data` for exactly that.
+
+Where fakesnow diverges: `VARIANT` and semi-structured handling,
+Snowflake-specific functions, and stored procedures. If you need closer
+fidelity -- the wire protocol, dbt, JDBC/ODBC -- the file also carries
+**LocalStack for Snowflake** behind a profile. It is a commercial product and
+will not start without a licence:
+
+```bash
+export LOCALSTACK_AUTH_TOKEN=...
+docker compose -f infra/docker-compose.snowflake.yml --profile localstack up -d
+```
+
+Nothing in this app uses Snowflake; this is here for local data work alongside it.
 
 ### Pointing an Azure environment at Redis
 
