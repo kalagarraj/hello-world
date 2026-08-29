@@ -43,7 +43,9 @@ services:
       # here localhost:3001 is this container, not the machine. The API is a
       # separate Compose project, so both attach to the shared b2c-shared
       # network below and address each other by service name.
-      DEMO_API_URL: http://api:3001/hello
+      # Override with a shell variable when the API is somewhere else, e.g.
+      # DEMO_API_URL=http://host.docker.internal:3001/hello npm run docker:up
+      DEMO_API_URL: ${DEMO_API_URL:-http://api:3001/hello}
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
@@ -75,11 +77,15 @@ services:
     restart: unless-stopped
 
 networks:
-  # A fixed name rather than the per-project default, so the API's stack can
-  # join the same network and be reachable as `api`. Whichever stack starts
-  # first creates it.
+  # Declared external, and created by the npm scripts, rather than letting each
+  # project create it. Two Compose projects that both *declare* the same network
+  # fight over its ownership labels, and the second one up fails. External means
+  # neither owns it, so order does not matter and neither `down` destroys it.
+  #
+  #   docker network create b2c-shared     # once, if running compose by hand
   default:
     name: b2c-shared
+    external: true
 
 volumes:
   redis-data:

@@ -10,8 +10,8 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "docker:build": "docker compose -f infra/docker-compose.yml build api",
-    "docker:up": "docker compose -f infra/docker-compose.yml up -d --build",
+    "docker:build": "docker network inspect b2c-shared >/dev/null 2>&1 || docker network create b2c-shared && docker compose -f infra/docker-compose.yml build api",
+    "docker:up": "docker network inspect b2c-shared >/dev/null 2>&1 || docker network create b2c-shared && docker compose -f infra/docker-compose.yml up -d --build",
     "docker:down": "docker compose -f infra/docker-compose.yml down",
     "docker:logs": "docker compose -f infra/docker-compose.yml logs -f api"
   },

@@ -111,9 +111,26 @@ which is not the same place in both topologies:
 
 Inside a container `localhost` is *that container*, so the default points at
 nothing and the call is refused even though the API is up and answering `curl`
-on your machine. Both stacks attach to a shared Docker network named
-`b2c-shared` so the app can address the API by its service name; whichever
-stack starts first creates the network.
+on your machine.
+
+Both stacks attach to a Docker network named `b2c-shared`, declared **external**
+in both Compose files so neither project owns it — two projects that both
+declare the same network fight over its ownership labels and the second one up
+fails. `npm run docker:up` creates it if missing, so the usual path needs no
+extra step. Running Compose by hand needs it once:
+
+```bash
+docker network create b2c-shared
+```
+
+Because it is external, `docker compose down` in either project leaves it alone.
+
+On Docker Desktop you can skip the network entirely and reach the API's
+published port through the host:
+
+```bash
+DEMO_API_URL=http://host.docker.internal:3001/hello npm run docker:up
+```
 
 When the call cannot be made the page names the cause (`ECONNREFUSED`,
 `ENOTFOUND`, a timeout) and what it usually means, rather than reporting Node's

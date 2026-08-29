@@ -29,6 +29,9 @@ services:
 
 networks:
   # Shared with the web app's stack so it can address this service as `api`.
-  # Whichever stack starts first creates the network.
+  # External so neither project owns it; the npm scripts create it.
+  #
+  #   docker network create b2c-shared     # once, if running compose by hand
   default:
     name: b2c-shared
+    external: true
