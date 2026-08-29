@@ -99,9 +99,25 @@ both sides of authentication:
 demonstrates exactly one thing.
 
 The call is made **server-side**, so the token is never handed to page scripts,
-and only a truncated preview of it is displayed. Point `DEMO_API_URL` elsewhere
-if the API does not listen on `http://localhost:3001/hello`; if it is not running
-at all, the page says so rather than failing.
+and only a truncated preview of it is displayed.
+
+`DEMO_API_URL` has to name an address reachable **from wherever this app runs**,
+which is not the same place in both topologies:
+
+| This app runs | `DEMO_API_URL` |
+| --- | --- |
+| on your machine (`npm run start:dev`) | `http://localhost:3001/hello` (the default) |
+| in Docker | `http://api:3001/hello` — set for you in `infra/docker-compose.yml` |
+
+Inside a container `localhost` is *that container*, so the default points at
+nothing and the call is refused even though the API is up and answering `curl`
+on your machine. Both stacks attach to a shared Docker network named
+`b2c-shared` so the app can address the API by its service name; whichever
+stack starts first creates the network.
+
+When the call cannot be made the page names the cause (`ECONNREFUSED`,
+`ENOTFOUND`, a timeout) and what it usually means, rather than reporting Node's
+bare "fetch failed".
 
 ## Watching the flow
 

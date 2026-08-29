@@ -39,6 +39,11 @@ services:
       # Overrides whatever .env says: inside the Compose network Redis answers
       # to its service name, and localhost would be the app's own container.
       REDIS_URL: redis://redis:6379
+      # Same reasoning, and the reason the demo links fail without it: from in
+      # here localhost:3001 is this container, not the machine. The API is a
+      # separate Compose project, so both attach to the shared b2c-shared
+      # network below and address each other by service name.
+      DEMO_API_URL: http://api:3001/hello
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
@@ -68,6 +73,13 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+
+networks:
+  # A fixed name rather than the per-project default, so the API's stack can
+  # join the same network and be reachable as `api`. Whichever stack starts
+  # first creates it.
+  default:
+    name: b2c-shared
 
 volumes:
   redis-data:

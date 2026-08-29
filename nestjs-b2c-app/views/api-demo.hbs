@@ -30,10 +30,9 @@
 
 {{#if result.transportError}}
   <p class="alert alert--warn">
-    Could not reach the API at <code>{{result.url}}</code>:
+    Could not reach the API at <code>{{result.url}}</code> &mdash;
     <code>{{result.transportError}}</code><br />
-    Start it with <code>npm run docker:up</code> in <code>nestjs-b2c-api</code>,
-    or set <code>DEMO_API_URL</code> if it listens elsewhere.
+    {{result.transportHint}}
   </p>
 {{else}}
   <pre class="response">{{result.body}}</pre>
