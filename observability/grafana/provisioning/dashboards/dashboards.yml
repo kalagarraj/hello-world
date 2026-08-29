@@ -10,4 +10,4 @@ providers:
     # source of truth. Use "Export -> Save to file" to keep a change.
     allowUiUpdates: false
     options:
-      path: /etc/grafana/dashboards
+      path: /var/lib/grafana/dashboards

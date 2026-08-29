@@ -34,17 +34,10 @@ services:
     ports:
       - '127.0.0.1:3002:3000'
     environment:
-      # Local convenience only: browse without an account, read-only.
-      # Remove all of these before exposing this anywhere.
-      #
-      # Grafana still shows a "Sign in" button with anonymous access on -- that
-      # is normal, not a failure. Use it only if you want to edit; the
-      # credentials below are the admin account.
+      # Local convenience only: no login prompt, and viewers cannot edit.
+      # Remove both before exposing this anywhere.
       GF_AUTH_ANONYMOUS_ENABLED: 'true'
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-      GF_AUTH_ANONYMOUS_ORG_NAME: 'Main Org.'
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_DEFAULT_THEME: dark
       # Consumed by the Azure Monitor datasource; unset means it simply fails
       # to authenticate rather than breaking provisioning.
@@ -54,10 +47,7 @@ services:
       AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID:-}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      # Deliberately NOT under /var/lib/grafana: that path is the grafana-data
-      # volume, and a bind mount nested inside another mount is fragile -- which
-      # is how the dashboard managed not to appear.
-      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus

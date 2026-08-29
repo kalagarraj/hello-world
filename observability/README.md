@@ -26,44 +26,6 @@ docker compose -f observability/docker-compose.yml up -d
 Both are provisioned from files in this directory, so the dashboard is there on
 first start with no clicking.
 
-### The "Sign in" button is normal
-
-With anonymous access on, Grafana still shows a **Sign in** button — you are
-already browsing as an anonymous viewer and do not need it. Use it only to edit
-something; the account is `admin` / `admin`.
-
-If instead you are *forced* to a login page, anonymous access did not take
-effect. Check the container picked up the settings:
-
-```bash
-docker compose -f observability/docker-compose.yml exec grafana env | grep GF_AUTH
-```
-
-### If the dashboard is missing or every panel says "No data"
-
-Work through it in this order — each command answers one question.
-
-```bash
-# 1. Did provisioning succeed? Datasource and dashboard errors both show here.
-docker compose -f observability/docker-compose.yml logs grafana | grep -iE "provisioning|error"
-
-# 2. Does Grafana have the Prometheus datasource?
-curl -s http://localhost:3002/api/datasources | python3 -m json.tool
-
-# 3. Did the dashboard load?
-curl -s http://localhost:3002/api/search?query=B2C | python3 -m json.tool
-
-# 4. Is Prometheus scraping the API?
-curl -s http://localhost:9090/api/v1/targets | python3 -m json.tool | grep -E '"health"|"scrapeUrl"|lastError'
-
-# 5. Does Prometheus actually hold the metric?
-curl -s 'http://localhost:9090/api/v1/query?query=api_requests_total' | python3 -m json.tool
-```
-
-Step 4 `"health": "down"` means Prometheus cannot reach the API — see the
-network check below. Step 5 returning an empty result with a healthy target
-means the API has simply not served any requests yet: generate traffic.
-
 ### Check it is scraping
 
 ```bash
