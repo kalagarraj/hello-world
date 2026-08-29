@@ -20,3 +20,9 @@ Notes
 
 - This setup is suitable for demos and learning. For a real project, consider creating a full React app using Vite, Create React App, or similar tooling.
 # hello-world
+
+## Infrastructure
+
+Terraform for this stack lives in [`infra/`](infra/README.md): the same apps,
+Cosmos DB, Snowflake, and Grafana observability, defined once and deployed
+either to Docker on a developer's machine or to Azure Container Apps.

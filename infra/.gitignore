@@ -1,0 +1,21 @@
+# Terraform working directories and state.
+# .terraform.lock.hcl is intentionally NOT ignored: commit it after the first
+# `terraform init` so everyone resolves the same provider versions.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Backend configuration containing account names
+backend.*.hcl
+!backend.*.hcl.example
+
+# Plan output
+*.tfplan
+
+# Anything holding credentials
+*.auto.tfvars
+secrets.tfvars
+*.p8
+*.pem

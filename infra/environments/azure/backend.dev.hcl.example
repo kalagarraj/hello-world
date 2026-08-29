@@ -1,0 +1,7 @@
+# Copy to backend.dev.hcl and fill in, then:
+#   terraform init -backend-config=backend.dev.hcl
+resource_group_name  = "rg-terraform-state"
+storage_account_name = "sttfstateexample"
+container_name       = "tfstate"
+key                  = "helloworld/dev.tfstate"
+use_azuread_auth     = true

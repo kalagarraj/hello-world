@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: hello-world
+    orgId: 1
+    folder: ${folder}
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/files
+      foldersFromFilesStructure: false

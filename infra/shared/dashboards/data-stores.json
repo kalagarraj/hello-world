@@ -1,0 +1,126 @@
+{
+  "uid": "helloworld-data",
+  "title": "Data Stores",
+  "description": "Cosmos DB and Snowflake activity. The Cosmos panels read Azure Monitor in Azure; locally they stay empty because the emulator publishes no metrics.",
+  "tags": ["hello-world", "data"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "prom",
+        "label": "Metrics",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "snowflake",
+        "label": "Snowflake",
+        "type": "datasource",
+        "query": "snowflake",
+        "current": {},
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Cosmos DB",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Request units consumed",
+      "description": "RU/s charged against the account. In Azure, point this panel at the Azure Monitor datasource and the TotalRequestUnits metric.",
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (collection) (rate(cosmos_request_units_total[5m]))",
+          "legendFormat": "{{collection}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Throttled requests (429)",
+      "description": "Requests rejected because the container exceeded its provisioned throughput.",
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (collection) (rate(cosmos_requests_total{status_code=\"429\"}[5m]))",
+          "legendFormat": "{{collection}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Snowflake",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Credits used per warehouse",
+      "description": "Requires the Snowflake datasource plugin and a role with access to SNOWFLAKE.ACCOUNT_USAGE.",
+      "datasource": { "type": "snowflake", "uid": "${snowflake}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT START_TIME AS time, WAREHOUSE_NAME AS metric, CREDITS_USED AS value FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY WHERE START_TIME >= $__timeFrom() AND START_TIME < $__timeTo() ORDER BY START_TIME",
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Query execution time p95",
+      "description": "95th percentile query duration by warehouse.",
+      "datasource": { "type": "snowflake", "uid": "${snowflake}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT DATE_TRUNC('hour', START_TIME) AS time, WAREHOUSE_NAME AS metric, APPROX_PERCENTILE(TOTAL_ELAPSED_TIME, 0.95) AS value FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY WHERE START_TIME >= $__timeFrom() AND START_TIME < $__timeTo() GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series"
+        }
+      ]
+    }
+  ]
+}
