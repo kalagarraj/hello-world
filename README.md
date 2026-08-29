@@ -23,6 +23,9 @@ Notes
 
 ## Also in this repo
 
+- [`nestjs-b2c-api/`](nestjs-b2c-api/) — a companion NestJS API whose single
+  `GET /hello` endpoint accepts the Azure AD B2C bearer tokens issued to the app
+  below, validating them against the tenant's JWKS.
 - [`nestjs-b2c-app/`](nestjs-b2c-app/) — a NestJS "Hello World" that signs users
   in against an Azure AD B2C user flow over OpenID Connect (via `openid-client`,
   not MSAL), with a public home page and a protected welcome page showing the

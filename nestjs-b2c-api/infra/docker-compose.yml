@@ -1,0 +1,25 @@
+# The API on its own. It needs no local infrastructure: token validation only
+# requires reaching the B2C tenant's JWKS endpoint.
+#
+#   npm run docker:up      build and start
+#   npm run docker:logs
+#   npm run docker:down
+#
+# Pinned so container and network names stay scoped to this project rather than
+# being derived from the directory (which would be "infra").
+name: b2c-api
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    init: true
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      PORT: '3001'
+    ports:
+      - '127.0.0.1:3001:3001'
+    restart: unless-stopped
