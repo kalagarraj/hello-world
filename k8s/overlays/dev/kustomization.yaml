@@ -15,9 +15,12 @@ patches:
   - path: api-patch.yaml
   - path: replicas-patch.yaml
 
-configMapGenerator:
-  - name: b2c-config
-    behavior: merge
-    literals:
-      - B2C_TENANT_NAME=contoso
-      - B2C_POLICY_NAME=B2C_1_signupsignin
+# The tenant and user flow live in base/config.yaml -- one place to edit.
+# Uncomment only if THIS environment uses a different tenant or policy;
+# duplicating the same values here just creates a second thing to forget.
+# configMapGenerator:
+#   - name: b2c-config
+#     behavior: merge
+#     literals:
+#       - B2C_TENANT_NAME=contoso-dev
+#       - B2C_POLICY_NAME=B2C_1_signupsignin
