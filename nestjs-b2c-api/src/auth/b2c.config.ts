@@ -8,12 +8,13 @@ import { ConfigService } from '@nestjs/config';
 export interface B2cApiConfig {
   discoveryUrl: string;
   /**
-   * Application (client) ID of the API's own app registration. A token is
-   * accepted only when its `aud` claim matches, which is what stops a token
-   * minted for some other API from being replayed here.
+   * Optional. When set, a token is accepted only if its `aud` claim matches,
+   * which is what stops a token minted for a different application being
+   * replayed here. Left unset, any token the tenant signed is accepted --
+   * convenient, and a real weakening. See the README.
    */
-  audience: string;
-  /** Optional: require this scope in the token's `scp` claim. */
+  audience?: string;
+  /** Optional: also require this scope in the token's `scp` claim. */
   requiredScope?: string;
 }
 
@@ -43,39 +44,43 @@ export function buildDiscoveryUrl(config: ConfigService): string | undefined {
 }
 
 /**
- * Unlike the web app, this one refuses to start when it is unconfigured. A web
- * app with no identity provider can still serve a public page; an API with no
- * way to validate tokens can only either reject everything or, far worse,
- * accept everything.
+ * Only the tenant is required: with just a discovery URL the API accepts any
+ * unexpired token that tenant signed, which is what lets the web app's existing
+ * bearer token work with no extra app registration.
+ *
+ * It still refuses to start without that. An API with no way to validate
+ * tokens can only reject everything, or accept everything.
  */
 export function loadB2cApiConfig(config: ConfigService): B2cApiConfig {
   const logger = new Logger('B2cApiConfig');
 
   const discoveryUrl = buildDiscoveryUrl(config);
-  const audience = config.get<string>('B2C_API_AUDIENCE');
-
-  const missing = [
-    !discoveryUrl && 'B2C_DISCOVERY_URL (or B2C_TENANT_NAME + B2C_POLICY_NAME)',
-    !audience && 'B2C_API_AUDIENCE',
-  ].filter((entry): entry is string => Boolean(entry));
-
-  if (missing.length > 0) {
+  if (!discoveryUrl) {
     throw new Error(
-      `Cannot start: missing ${missing.join(', ')}. An API without token ` +
-        'validation configured would have to reject every request, so this ' +
-        'fails at startup rather than at runtime.',
+      'Cannot start: set B2C_DISCOVERY_URL, or B2C_TENANT_NAME and ' +
+        'B2C_POLICY_NAME. Without a tenant there is no key to validate ' +
+        'tokens against.',
     );
   }
 
+  const audience = config.get<string>('B2C_API_AUDIENCE');
   const requiredScope = config.get<string>('B2C_REQUIRED_SCOPE');
+
+  if (audience) {
+    logger.log(`Requiring audience ${audience}`);
+  } else {
+    // Loud, because this is the difference between "tokens meant for me" and
+    // "any token from this tenant", and it must not reach production silently.
+    logger.warn(
+      'B2C_API_AUDIENCE is not set: ANY unexpired token signed by this tenant ' +
+        'is accepted, including tokens issued to other applications. Fine for ' +
+        'local development; set it before deploying.',
+    );
+  }
+
   logger.log(
-    `Accepting tokens for audience ${audience}` +
-      (requiredScope ? ` with scope ${requiredScope}` : ' (no scope check)'),
+    requiredScope ? `Requiring scope ${requiredScope}` : 'No scope check',
   );
 
-  return {
-    discoveryUrl: discoveryUrl as string,
-    audience: audience as string,
-    requiredScope,
-  };
+  return { discoveryUrl, audience, requiredScope };
 }

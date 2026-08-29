@@ -30,8 +30,13 @@ interface B2cAccessTokenClaims {
 
 /**
  * Validates the bearer token on every request: signature against the tenant's
- * JWKS, plus issuer, audience and expiry. Keys are fetched from the discovered
- * jwks_uri and cached, so a rotated signing key is picked up without a restart.
+ * JWKS, plus issuer and expiry, and audience and scope when those are
+ * configured. Keys are fetched from the discovered jwks_uri and cached, so a
+ * rotated signing key is picked up without a restart.
+ *
+ * With no audience configured this accepts any unexpired token the tenant
+ * signed -- an ID token as readily as an access token -- which is what makes
+ * the web app's existing bearer work without a second app registration.
  */
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   private readonly logger = new Logger(JwtStrategy.name);
@@ -46,7 +51,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       ignoreExpiration: false,
       algorithms: ['RS256'],
       issuer: issuerMetadata.issuer,
-      audience: b2c.audience,
+      // Only checked when configured. Omitted entirely rather than passed as
+      // undefined, so the audience check is genuinely off rather than compared
+      // against nothing.
+      ...(b2c.audience ? { audience: b2c.audience } : {}),
       secretOrKeyProvider: passportJwtSecret({
         jwksUri: issuerMetadata.jwksUri,
         cache: true,

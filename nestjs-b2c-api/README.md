@@ -29,18 +29,28 @@ tenant's issuer and JWKS URI. No `@azure/msal-*`, no `passport-azure-ad`.
 
 On every request, before the handler runs:
 
-| Check | Rejected with |
-| --- | --- |
-| Signature against the tenant's JWKS (RS256) | `401` |
-| `iss` matches the discovered issuer | `401` |
-| `aud` matches `B2C_API_AUDIENCE` | `401` |
-| `exp` in the future (no skew allowance) | `401` |
-| `scp` contains `B2C_REQUIRED_SCOPE`, when set | `403` |
+| Check | Always on | Rejected with |
+| --- | --- | --- |
+| Signature against the tenant's JWKS (RS256) | yes | `401` |
+| `iss` matches the discovered issuer | yes | `401` |
+| `exp` in the future (no skew allowance) | yes | `401` |
+| `aud` matches `B2C_API_AUDIENCE` | only when set | `401` |
+| `scp` contains `B2C_REQUIRED_SCOPE` | only when set | `403` |
 
-The audience check is what stops a token minted for a *different* API from
-being replayed here, so `B2C_API_AUDIENCE` must be this API's own app
-registration, not the web app's. The scope failure is deliberately `403` rather
-than `401`: the caller proved who they are, they are simply not allowed here.
+By default the audience and scope checks are **off**, so any unexpired token
+your tenant signed is accepted — an ID token as readily as an access token.
+That is what lets the web app's existing bearer token work with no second app
+registration and no extra scope.
+
+**It is also a real weakening**, so be clear-eyed about it: any application in
+the tenant can obtain a token this API will accept. There is no privilege
+escalation across tenants — a token from a different tenant, a forged one, or an
+expired one is still refused — but within the tenant there is no separation. The
+API logs a warning on every start while the audience is unset.
+
+Set `B2C_API_AUDIENCE` before deploying anywhere real. When you do, the setup
+below applies, and a scope failure answers `403` rather than `401`: the caller
+proved who they are, they are simply not allowed here.
 
 Signing keys are fetched from the discovered `jwks_uri` and cached for ten
 minutes, so a key rotation is picked up without a restart. Requests for unknown
@@ -48,9 +58,12 @@ key IDs are rate limited, so a bad token cannot be used to hammer the tenant.
 
 ## Azure AD B2C setup
 
-This needs **two** app registrations — the web app that signs users in, and
-this API. If you only have the first, B2C will not issue a token this API can
-accept.
+**Nothing beyond the web app's own setup is required.** Point this API at the
+same tenant and user flow, and the token the web app already receives works.
+
+The rest of this section is what to do when you want the audience check on —
+recommended before deploying. It needs a second app registration, for the API
+itself.
 
 1. Register the API (**App registrations → New registration**).
 2. Under **Expose an API**, set the Application ID URI and add a scope, e.g.
@@ -68,14 +81,15 @@ accept.
 5. Here, set `B2C_API_AUDIENCE` to the API registration's Application (client)
    ID, and optionally `B2C_REQUIRED_SCOPE=api.read`.
 
-Without step 4 the web app receives a token that is not addressed to this API,
-and every call returns `401` — which is correct behaviour, not a bug.
+With `B2C_API_AUDIENCE` set but step 4 skipped, the web app receives a token
+that is not addressed to this API and every call returns `401` — correct
+behaviour, not a bug.
 
 ## Running it
 
 ```bash
 npm install
-cp .env.example .env    # fill in tenant, policy and B2C_API_AUDIENCE
+cp .env.example .env    # tenant and policy are all that is required
 npm run start:dev       # http://localhost:3001
 ```
 
