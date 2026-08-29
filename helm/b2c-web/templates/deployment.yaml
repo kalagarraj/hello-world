@@ -1,0 +1,105 @@
+{{/*
+Sessions live in the pod unless a Redis URL is set, so a second replica would
+sign users out whenever the Service moved them. Fail the install rather than
+let that reach a cluster and look like a flaky login.
+*/}}
+{{- if and (gt (int .Values.replicaCount) 1) (not .Values.redis.url) }}
+{{- fail "replicaCount > 1 needs redis.url: without a shared session store each replica has its own sessions" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "b2c-web.fullname" . }}
+  labels:
+    {{- include "b2c-web.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "b2c-web.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Rolls the pods when config or secrets change: without this an upgrade
+        # that only edits the ConfigMap leaves the old values running.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if not .Values.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "b2c-web.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: {{ include "b2c-web.fullname" . }}
+            - secretRef:
+                name: {{ include "b2c-web.secretName" . }}
+          env:
+            - name: APP_ENV
+              value: {{ .Values.appEnv | quote }}
+            - name: PORT
+              value: "3000"
+            - name: APP_BASE_URL
+              value: {{ .Values.appBaseUrl | quote }}
+            - name: AUTH_TRACE
+              value: {{ .Values.authTrace | quote }}
+            {{- if .Values.redis.url }}
+            - name: REDIS_URL
+              value: {{ .Values.redis.url | quote }}
+            {{- end }}
+            {{- if .Values.demoApiUrl }}
+            - name: DEMO_API_URL
+              value: {{ .Values.demoApiUrl | quote }}
+            {{- end }}
+            {{- if and (ne .Values.appEnv "local") (hasPrefix "http://" .Values.appBaseUrl) }}
+            # Anything but `local` defaults the cookie to Secure, which a plain
+            # http:// origin drops -- the login would appear to work and bounce.
+            - name: SESSION_COOKIE_SECURE
+              value: "false"
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
