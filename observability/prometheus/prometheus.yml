@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: b2c-api
+    metrics_path: /metrics
+    static_configs:
+      # host.docker.internal reaches the API when it runs on the host; use the
+      # service name instead when the API runs in Compose on a shared network.
+      - targets: ['host.docker.internal:9464']
+        labels:
+          service: b2c-api

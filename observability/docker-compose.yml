@@ -1,0 +1,55 @@
+# Prometheus + Grafana for the NestJS API's call metrics.
+#
+#   docker compose -f observability/docker-compose.yml up -d
+#   Grafana      http://localhost:3002   (anonymous, viewer)
+#   Prometheus   http://localhost:9090
+#
+# The API must be running with its metrics port reachable -- 9464 by default.
+#
+# Own project name so this stack starts and stops independently of the others.
+name: b2c-observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    ports:
+      - '127.0.0.1:9090:9090'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    # Lets the scrape config reach a metrics port on the host on Linux, where
+    # host.docker.internal is not resolvable by default.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    ports:
+      - '127.0.0.1:3002:3000'
+    environment:
+      # Local convenience only: no login prompt, and viewers cannot edit.
+      # Remove both before exposing this anywhere.
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+      # Consumed by the Azure Monitor datasource; unset means it simply fails
+      # to authenticate rather than breaking provisioning.
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID:-}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

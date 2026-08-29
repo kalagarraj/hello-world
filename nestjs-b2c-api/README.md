@@ -115,6 +115,25 @@ With one route, and that route requiring a token, a 401 proves both that the
 process is serving and that the guard is wired — while a 200 would mean
 authentication had been bypassed, and is treated as unhealthy.
 
+## Metrics
+
+Prometheus metrics are served on a **separate port** (`METRICS_PORT`, 9464 by
+default), so the API keeps exactly one route and scrape traffic never touches
+the authenticated surface.
+
+```bash
+curl http://localhost:9464/metrics
+```
+
+`api_requests_total`, `api_request_duration_seconds` and
+`api_auth_results_total`, plus default Node metrics. A Grafana dashboard over
+them lives in [`../observability`](../observability).
+
+Recording happens in middleware rather than an interceptor: Nest runs guards
+*before* interceptors, so a request the auth guard rejects never reaches one —
+which would leave every 401, the most interesting signal on a token-protected
+API, counted as nothing.
+
 ## Calling it
 
 Take an access token the web app received and:

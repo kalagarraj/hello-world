@@ -23,6 +23,9 @@ Notes
 
 ## Also in this repo
 
+- [`observability/`](observability/) — Prometheus and Grafana with a
+  provisioned dashboard of the API's call volume, outcome and latency, plus an
+  Azure Monitor datasource for the deployed service.
 - [`nestjs-b2c-api/`](nestjs-b2c-api/) — a companion NestJS API whose single
   `GET /hello` endpoint accepts the Azure AD B2C bearer tokens issued to the app
   below, validating them against the tenant's JWKS.
