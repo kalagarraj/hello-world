@@ -1,0 +1,4 @@
+/target
+# Environment-specific CA certificates for builds behind a TLS-inspecting
+# proxy; the directory itself is tracked, its contents are not.
+/certs/*.crt

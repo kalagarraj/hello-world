@@ -1,0 +1,17 @@
+services:
+  hello-rust:
+    build:
+      # Context is the crate root; the Dockerfile lives here in infra/.
+      context: ..
+      dockerfile: infra/Dockerfile
+    image: hello-rust:latest
+    container_name: hello-rust
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      RUST_LOG: "info"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
