@@ -6,8 +6,12 @@ scrape_configs:
   - job_name: b2c-api
     metrics_path: /metrics
     static_configs:
-      # host.docker.internal reaches the API when it runs on the host; use the
-      # service name instead when the API runs in Compose on a shared network.
-      - targets: ['host.docker.internal:9464']
+      # The API's service name on the shared b2c-shared network. This works on
+      # every platform and does not depend on how the API publishes ports.
+      #
+      # If you run the API on your machine instead of in Docker, swap this for
+      # 'host.docker.internal:9464' -- the extra_hosts entry in the Compose file
+      # makes that resolvable on Linux too.
+      - targets: ['api:9464']
         labels:
           service: b2c-api

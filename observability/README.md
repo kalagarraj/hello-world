@@ -2,7 +2,19 @@
 
 A dashboard over the NestJS API's call volume, outcome and latency.
 
+## Steps
+
+From the repository root, in order:
+
 ```bash
+# 1. The shared network. Skip if you have already started an app stack --
+#    their npm scripts create it. Safe to run twice.
+docker network create b2c-shared 2>/dev/null || true
+
+# 2. The API, which is what gets measured.
+cd nestjs-b2c-api && npm run docker:up && cd ..
+
+# 3. Prometheus and Grafana.
 docker compose -f observability/docker-compose.yml up -d
 ```
 
@@ -11,9 +23,39 @@ docker compose -f observability/docker-compose.yml up -d
 | Grafana | http://localhost:3002 — dashboard **B2C / B2C API — calls** |
 | Prometheus | http://localhost:9090 |
 
-The API must be running with its metrics port reachable (9464 by default). Both
-Grafana and Prometheus are provisioned from files in this directory, so the
-dashboard is present on first start with no clicking.
+Both are provisioned from files in this directory, so the dashboard is there on
+first start with no clicking.
+
+### Check it is scraping
+
+```bash
+open http://localhost:9090/targets      # b2c-api should read UP
+```
+
+`DOWN` means Prometheus cannot reach the API. Prometheus scrapes it as
+`api:9464` over the `b2c-shared` network, so the usual causes are the API stack
+not running, or it not being attached to that network:
+
+```bash
+docker network inspect b2c-shared --format '{{range .Containers}}{{.Name}} {{end}}'
+```
+
+Both the API container and `prometheus` should appear. If you run the API on
+your machine rather than in Docker, change the target in
+`prometheus/prometheus.yml` to `host.docker.internal:9464` and restart
+Prometheus.
+
+### Make the panels show something
+
+An idle API produces flat zeroes. Generate some traffic — the demo links in the
+web app do this, or:
+
+```bash
+curl -s -o /dev/null http://localhost:3001/hello          # a 401
+curl -s -o /dev/null -H "Authorization: Bearer $TOKEN" http://localhost:3001/hello
+```
+
+Panels fill within a scrape interval or two (10s).
 
 ## What the API exposes
 

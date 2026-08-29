@@ -4,7 +4,10 @@
 #   Grafana      http://localhost:3002   (anonymous, viewer)
 #   Prometheus   http://localhost:9090
 #
-# The API must be running with its metrics port reachable -- 9464 by default.
+# The API must be running and attached to the b2c-shared network, which
+# `npm run docker:up` in either app creates. By hand:
+#
+#   docker network create b2c-shared
 #
 # Own project name so this stack starts and stops independently of the others.
 name: b2c-observability
@@ -49,6 +52,14 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+
+networks:
+  # Shared with the app and API stacks so Prometheus can scrape the API by its
+  # service name. External so no project owns it and `down` here leaves it for
+  # the others.
+  default:
+    name: b2c-shared
+    external: true
 
 volumes:
   prometheus-data:
