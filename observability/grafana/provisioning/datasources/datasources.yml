@@ -9,19 +9,3 @@ datasources:
     isDefault: true
     jsonData:
       timeInterval: 10s
-
-  # Azure Monitor / Application Insights, for the same API once it is deployed.
-  # Inert until the four AZURE_* variables are set: Grafana will show it as a
-  # datasource that fails to authenticate, which is the honest state.
-  - name: Azure Monitor
-    type: grafana-azure-monitor-datasource
-    uid: azure-monitor
-    access: proxy
-    jsonData:
-      azureAuthType: clientsecret
-      cloudName: azuremonitor
-      tenantId: ${AZURE_TENANT_ID}
-      clientId: ${AZURE_CLIENT_ID}
-      subscriptionId: ${AZURE_SUBSCRIPTION_ID}
-    secureJsonData:
-      clientSecret: ${AZURE_CLIENT_SECRET}

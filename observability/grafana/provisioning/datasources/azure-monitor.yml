@@ -1,0 +1,21 @@
+apiVersion: 1
+
+# Optional, for the same API once deployed. Kept in its own file so a problem
+# here cannot stop the Prometheus datasource provisioning -- which would leave
+# every panel reporting no data for a reason that has nothing to do with them.
+#
+# Inert until the four AZURE_* variables are set: Grafana provisions it and it
+# simply fails to authenticate, which is the honest state.
+datasources:
+  - name: Azure Monitor
+    type: grafana-azure-monitor-datasource
+    uid: azure-monitor
+    access: proxy
+    jsonData:
+      azureAuthType: clientsecret
+      cloudName: azuremonitor
+      tenantId: ${AZURE_TENANT_ID}
+      clientId: ${AZURE_CLIENT_ID}
+      subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+    secureJsonData:
+      clientSecret: ${AZURE_CLIENT_SECRET}
