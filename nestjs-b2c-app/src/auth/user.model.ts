@@ -17,6 +17,12 @@ export interface AppUser {
   expiresAt?: number;
   claims: Record<string, unknown>;
   idToken?: string;
+  /**
+   * Kept so the app can call a downstream API on the user's behalf. B2C only
+   * returns one addressed to another API when that API's scope was requested,
+   * so this can be absent even on a successful sign-in.
+   */
+  accessToken?: string;
 }
 
 interface B2cClaims extends IdTokenClaims {
@@ -27,7 +33,11 @@ interface B2cClaims extends IdTokenClaims {
   tfp?: string;
 }
 
-export function toAppUser(claims: IdTokenClaims, idToken?: string): AppUser {
+export function toAppUser(
+  claims: IdTokenClaims,
+  idToken?: string,
+  accessToken?: string,
+): AppUser {
   const b2c = claims as B2cClaims;
   const email =
     (Array.isArray(b2c.emails) ? b2c.emails[0] : undefined) ??
@@ -47,5 +57,6 @@ export function toAppUser(claims: IdTokenClaims, idToken?: string): AppUser {
     expiresAt: b2c.exp,
     claims: { ...(b2c as Record<string, unknown>) },
     idToken,
+    accessToken,
   };
 }

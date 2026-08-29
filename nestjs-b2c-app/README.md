@@ -84,6 +84,25 @@ The discovery document is derived as
 Set `B2C_DISCOVERY_URL` explicitly for custom domains, custom policies, or
 `*.ciamlogin.com` tenants.
 
+## Trying the companion API
+
+Two links demonstrate the API in [`../nestjs-b2c-api`](../nestjs-b2c-api) from
+both sides of authentication:
+
+* the **home page**, signed out, offers *Call the API without a token* — no
+  `Authorization` header is sent, and the page shows the `401` coming back;
+* the **welcome page**, signed in, offers *Call the API with your token* — the
+  session's access token goes out as a bearer and the page shows the `200` and
+  the API's view of the caller.
+
+`/api-demo/anonymous` omits the header even when you are signed in, so each link
+demonstrates exactly one thing.
+
+The call is made **server-side**, so the token is never handed to page scripts,
+and only a truncated preview of it is displayed. Point `DEMO_API_URL` elsewhere
+if the API does not listen on `http://localhost:3001/hello`; if it is not running
+at all, the page says so rather than failing.
+
 ## Watching the flow
 
 Every step of the sign-in and authorization flow is traced to the console under
@@ -141,6 +160,8 @@ Set `AUTH_TRACE=false` to turn the whole trace off.
 | `GET /auth/callback` | Code exchange + session creation, then redirects to `/welcome` |
 | `GET /welcome` | Protected — shows the signed-in user's details |
 | `GET /auth/logout` | Local sign-out, then B2C `end_session_endpoint` |
+| `GET /api-demo/anonymous` | Calls the companion API with no token — shows the refusal |
+| `GET /api-demo/authorized` | Protected — calls it with your session's token |
 | `GET /setup` | Setup instructions shown when B2C is not configured |
 | `GET /healthz` | Liveness probe |
 

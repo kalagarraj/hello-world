@@ -128,3 +128,19 @@ code { padding: .1rem .35rem; }
 .note { color: var(--muted); font-size: .9rem; margin: 1rem 0 0; }
 .steps code { font-size: .8rem; }
 .alert code { font-size: .8rem; }
+
+.muted { color: var(--muted); font-size: .9rem; }
+
+.status { font-weight: 600; padding: .1rem .5rem; border-radius: 6px; }
+.status--ok { background: var(--ok-bg); color: var(--ok-fg); }
+.status--warn { background: var(--warn-bg); color: var(--warn-fg); }
+
+.response {
+  margin: 1.25rem 0 0;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: .85rem;
+  overflow-x: auto;
+}

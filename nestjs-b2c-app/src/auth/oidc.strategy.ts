@@ -143,7 +143,7 @@ export class OidcStrategy extends PassportStrategy(Strategy, 'oidc') {
       claims: `[${Object.keys(claims).join(', ')}]`,
     });
 
-    const user = toAppUser(claims, tokenset.id_token);
+    const user = toAppUser(claims, tokenset.id_token, tokenset.access_token);
     authFlow('6. USER MAPPED', {
       flow,
       name: user.name,

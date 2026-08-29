@@ -1,0 +1,48 @@
+<p class="eyebrow">{{expectation}}</p>
+<h1>{{heading}}</h1>
+<p class="lede">{{lede}}</p>
+
+<dl class="details">
+  <div class="details__row">
+    <dt>Request</dt>
+    <dd><code>GET {{result.url}}</code></dd>
+  </div>
+  <div class="details__row">
+    <dt>Authorization</dt>
+    <dd>
+      {{#if result.sentToken}}
+        <code>Bearer {{result.tokenPreview}}</code>
+        <span class="muted">&mdash; your {{result.tokenKind}}</span>
+      {{else}}
+        <span class="muted">header omitted</span>
+      {{/if}}
+    </dd>
+  </div>
+  {{#unless result.transportError}}
+    <div class="details__row">
+      <dt>Response</dt>
+      <dd>
+        <span class="status status--{{statusTone}}">{{result.status}} {{result.statusText}}</span>
+      </dd>
+    </div>
+  {{/unless}}
+</dl>
+
+{{#if result.transportError}}
+  <p class="alert alert--warn">
+    Could not reach the API at <code>{{result.url}}</code>:
+    <code>{{result.transportError}}</code><br />
+    Start it with <code>npm run docker:up</code> in <code>nestjs-b2c-api</code>,
+    or set <code>DEMO_API_URL</code> if it listens elsewhere.
+  </p>
+{{else}}
+  <pre class="response">{{result.body}}</pre>
+{{/if}}
+
+<div class="actions">
+  {{#if isAuthenticated}}
+    <a class="button button--ghost" href="/welcome">Back to welcome</a>
+  {{else}}
+    <a class="button button--ghost" href="/">Back to home</a>
+  {{/if}}
+</div>

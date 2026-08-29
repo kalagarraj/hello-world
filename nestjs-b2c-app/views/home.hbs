@@ -18,7 +18,12 @@
 {{else if isConfigured}}
   <div class="actions">
     <a class="button" href="/auth/login">Log in with Azure AD B2C</a>
+    <a class="button button--ghost" href="/api-demo/anonymous">Call the API without a token</a>
   </div>
+  <p class="note">
+    The second link calls the companion API with no bearer token, so you can see
+    it refused before signing in.
+  </p>
 {{else}}
   <p class="alert alert--warn">
     Azure AD B2C is not configured yet, so login is disabled.
