@@ -1,0 +1,16 @@
+# No REDIS_URL here: production takes it from the Secret, pointing at Azure
+# Cache for Redis. The app fails to start if it is missing, which is deliberate
+# -- see the session-store notes in the web app's README.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: web
+          env:
+            - { name: APP_ENV, value: prod }
+            - { name: APP_BASE_URL, value: https://app.example.com }

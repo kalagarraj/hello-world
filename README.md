@@ -23,6 +23,8 @@ Notes
 
 ## Also in this repo
 
+- [`k8s/`](k8s/) — Kustomize manifests deploying the apps, Redis and the
+  observability stack, with dev and prod overlays.
 - [`observability/`](observability/) — Prometheus and Grafana with a
   provisioned dashboard of the API's call volume, outcome and latency, plus an
   Azure Monitor datasource for the deployed service.

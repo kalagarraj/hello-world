@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: b2c
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - web.yaml
+  - api.yaml
+  - redis.yaml
+  - prometheus.yaml
+  - grafana.yaml
+  - ingress.yaml
+
+# Kustomize will not read files outside its own directory, so this is a copy of
+# observability/grafana/dashboards/b2c-api-calls.json rather than a reference to
+# it. ./k8s/sync-dashboard.sh refreshes it; --check fails when they differ.
+configMapGenerator:
+  - name: grafana-dashboards
+    files:
+      - dashboards/b2c-api-calls.json
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: b2c

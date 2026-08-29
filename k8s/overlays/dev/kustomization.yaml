@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: b2c
+resources:
+  - ../../base
+
+# Point at whatever registry you pushed to.
+images:
+  - { name: b2c-web, newName: ghcr.io/OWNER/b2c-web, newTag: dev }
+  - { name: b2c-api, newName: ghcr.io/OWNER/b2c-api, newTag: dev }
+
+patches:
+  - path: web-patch.yaml
+  - path: api-patch.yaml
+  - path: replicas-patch.yaml
+
+configMapGenerator:
+  - name: b2c-config
+    behavior: merge
+    literals:
+      - B2C_TENANT_NAME=contoso
+      - B2C_POLICY_NAME=B2C_1_signupsignin
