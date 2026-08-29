@@ -129,6 +129,14 @@ curl http://localhost:9464/metrics
 `api_auth_results_total`, plus default Node metrics. A Grafana dashboard over
 them lives in [`../observability`](../observability).
 
+**Metrics never affect availability.** If the metrics port cannot bind — most
+likely something else already holds 9464 — the API logs the failure and carries
+on serving; Prometheus simply reports the target as down. Counters keep
+incrementing in memory regardless, so only the scrape endpoint is lost. Set
+`METRICS_ENABLED=false` to skip opening the port entirely. Prometheus and
+Grafana being down has no effect on either app at all: nothing in the request
+path talks to them.
+
 Recording happens in middleware rather than an interceptor: Nest runs guards
 *before* interceptors, so a request the auth guard rejects never reaches one —
 which would leave every 401, the most interesting signal on a token-protected

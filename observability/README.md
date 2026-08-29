@@ -72,6 +72,14 @@ The bundled dashboard queries **Prometheus only**; it has not been built against
 Azure Monitor's own metric names (`requests/count`, `requests/duration`), which
 differ from the ones here.
 
+## This stack is optional
+
+Nothing in the request path of either app talks to Prometheus or Grafana, so
+neither app cares whether this stack is running — the API exposes metrics and is
+indifferent to whether anyone scrapes them. Conversely, if the API's metrics port
+cannot bind, the API logs it and keeps serving; Prometheus shows the target as
+down and the panels go empty, which is the correct signal rather than an outage.
+
 ## Notes
 
 * Grafana runs with anonymous viewer access and no login, which is local

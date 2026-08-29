@@ -30,10 +30,15 @@ async function bootstrap(): Promise<void> {
   // Metrics live on their own port, so the public API keeps exactly one route
   // and scrape traffic never touches the authenticated surface. Publish this
   // port to Prometheus only, never to the internet.
+  if ((config.get<string>('METRICS_ENABLED') ?? 'true').toLowerCase() === 'false') {
+    logger.log('Metrics endpoint disabled by METRICS_ENABLED=false');
+    return;
+  }
+
   const metricsPort = Number(config.get<string>('METRICS_PORT') ?? 9464);
   const metrics = app.get(MetricsService);
 
-  createServer((req, res) => {
+  const metricsServer = createServer((req, res) => {
     if (req.url?.split('?')[0] !== '/metrics') {
       res.writeHead(404).end();
       return;
@@ -44,7 +49,21 @@ async function bootstrap(): Promise<void> {
         res.writeHead(200, { 'Content-Type': metrics.contentType }).end(body);
       })
       .catch(() => res.writeHead(500).end());
-  }).listen(metricsPort, '0.0.0.0', () => {
+  });
+
+  // Telemetry must never be able to take the API down. Without this handler an
+  // EADDRINUSE on the metrics port is an unhandled 'error' event, which crashes
+  // the process -- so a stray container holding 9464 would stop the API serving
+  // requests it is perfectly capable of serving. Counters keep incrementing in
+  // memory either way; only the scrape endpoint is lost.
+  metricsServer.on('error', (error: NodeJS.ErrnoException) => {
+    logger.error(
+      `Metrics endpoint unavailable on port ${metricsPort} (${error.code ?? error.message}). ` +
+        'The API continues to serve requests; Prometheus will report the target as down.',
+    );
+  });
+
+  metricsServer.listen(metricsPort, '0.0.0.0', () => {
     logger.log(`Metrics on http://localhost:${metricsPort}/metrics`);
   });
 }
