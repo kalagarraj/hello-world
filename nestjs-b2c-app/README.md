@@ -226,6 +226,21 @@ Worth knowing about the setup:
   the image needs no `curl` or `wget`.
 * Compose waits for Redis to report healthy before starting the app, since the
   app fails fast when Redis is unreachable.
+* No service sets `container_name`. That name is global across every Compose
+  project on the machine, so a leftover container from a different project name
+  blocks startup with *"the container name is already in use"*. Compose derives
+  names like `b2c-local-redis-1` instead, scoped to this project.
+
+If you ran an earlier revision of this repo, containers from the old project
+name may still be holding those names. Clear them once:
+
+```bash
+docker rm -f b2c-redis b2c-app b2c-cosmos 2>/dev/null || true
+```
+
+The old `nestjs-b2c-app_redis-data` volume is likewise orphaned by the project
+rename; `docker volume rm nestjs-b2c-app_redis-data` if you want it gone. Both
+only cost you the local sessions stored in them.
 
 ### Running Redis locally in Docker
 

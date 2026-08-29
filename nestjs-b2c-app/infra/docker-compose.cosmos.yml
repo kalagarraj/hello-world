@@ -17,7 +17,6 @@ name: b2c-cosmos
 services:
   cosmos:
     image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-latest
-    container_name: b2c-cosmos
     # HTTP is the emulator's default; stated explicitly because it matters.
     # HTTPS generates a self-signed certificate every client must then trust.
     # The .NET and Java SDKs require HTTPS, so switch to ['--protocol','https']

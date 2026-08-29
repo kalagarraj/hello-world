@@ -12,6 +12,13 @@
 # Pinned explicitly. Compose otherwise derives the project name from the
 # directory holding this file, which since the move to infra/ would name every
 # container and volume "infra".
+#
+# No service sets container_name: that name is global across every Compose
+# project on the machine, so a container left over from an older project name
+# blocks this one from starting with "name is already in use". Letting Compose
+# derive it (b2c-local-redis-1) keeps the names scoped to this project. Address
+# services by their service name -- `docker compose exec redis ...` -- not by
+# container name.
 name: b2c-local
 
 services:
@@ -22,7 +29,6 @@ services:
       # reads it from the context root.
       context: ..
       dockerfile: infra/Dockerfile
-    container_name: b2c-app
     # Reap zombies and forward signals, so Ctrl-C and `docker stop` reach Node.
     init: true
     env_file:
@@ -47,7 +53,6 @@ services:
     # types are built into core, so redis-stack-server is no longer needed
     # (its maintenance releases ended in December 2025).
     image: redis:8-alpine
-    container_name: b2c-redis
     # Bound to loopback only: an unauthenticated Redis reachable from the
     # network would let anyone on it read and forge session data.
     ports:
