@@ -25,6 +25,13 @@ appBaseUrl: http://localhost:3000
 b2c:
   tenantName: contoso
   policyName: B2C_1_signupsignin
+  # The discovery document is derived from tenantName + policyName as
+  #   https://<tenant>.b2clogin.com/<tenant>.onmicrosoft.com/<policy>/v2.0/.well-known/openid-configuration
+  # Set this to the full URL instead whenever that shape does not hold: a
+  # custom domain, a CIAM (*.ciamlogin.com) tenant, or a tenant whose initial
+  # domain is not <tenantName>.onmicrosoft.com. Getting that last one wrong
+  # answers 404 rather than failing loudly, which is hard to read from the pod.
+  discoveryUrl: ""
   clientId: "00000000-0000-0000-0000-000000000000"
   scope: openid profile email offline_access
   # Leave empty for a registration B2C treats as a public client: PKCE only, no

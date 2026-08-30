@@ -12,3 +12,7 @@ data:
   B2C_POLICY_NAME: {{ .Values.b2c.policyName | quote }}
   B2C_CLIENT_ID: {{ .Values.b2c.clientId | quote }}
   B2C_SCOPE: {{ .Values.b2c.scope | quote }}
+  {{- if .Values.b2c.discoveryUrl }}
+  # Takes precedence over tenantName/policyName, which the app then ignores.
+  B2C_DISCOVERY_URL: {{ .Values.b2c.discoveryUrl | quote }}
+  {{- end }}
