@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels: { app.kubernetes.io/name: web, app.kubernetes.io/component: web }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: web }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: web }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: web
+          image: b2c-web:latest
+          ports:
+            - { name: http, containerPort: 3000 }
+          envFrom:
+            - configMapRef: { name: b2c-config }
+            - secretRef: { name: b2c-secrets }
+          env:
+            # Two replicas only work because sessions are in Redis rather than
+            # in each pod; with the in-process store users would be signed out
+            # whenever the load balancer moved them.
+            - { name: APP_ENV, value: dev }
+            - { name: PORT, value: "3000" }
+            - { name: DEMO_API_URL, value: http://api:3001/hello }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  labels: { app.kubernetes.io/name: web, app.kubernetes.io/component: web }
+spec:
+  selector: { app.kubernetes.io/name: web }
+  ports:
+    - { name: http, port: 3000, targetPort: http }

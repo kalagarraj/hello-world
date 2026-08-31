@@ -1,0 +1,64 @@
+# Prometheus and Grafana as one release: Grafana's only datasource is this
+# Prometheus, and the dashboard is meaningless without it. Installing them
+# together means the datasource URL is derived rather than configured, so there
+# is no way to point Grafana at a Prometheus that was never deployed.
+
+# What Prometheus scrapes. `address` is host:port as resolved from inside the
+# cluster -- a Service name, not a pod IP, so scraping survives a rescheduled
+# or scaled API. It defaults to the Service the b2c-api chart creates when its
+# release is named `b2c-api`; change it if you named the release differently.
+scrapeTargets:
+  - name: b2c-api
+    address: b2c-api:9464
+    labels:
+      service: b2c-api
+
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: v3.1.0
+    pullPolicy: IfNotPresent
+  scrapeInterval: 10s
+  # Storage is an emptyDir: history is disposable here. For history that
+  # outlives a pod, swap in a PersistentVolumeClaim, or send metrics to Azure
+  # Monitor managed Prometheus instead of running this at all.
+  retention: 7d
+  service:
+    type: ClusterIP
+    port: 9090
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: 11.5.1
+    pullPolicy: IfNotPresent
+  # Anonymous viewing, as in the Compose stack: no login for a dashboard of
+  # local request counts. It also means anyone who can reach Grafana can read
+  # your metrics, so reach it with `kubectl port-forward` and put real auth in
+  # front of it before exposing it to anything.
+  anonymous:
+    enabled: true
+    role: Viewer
+  defaultTheme: dark
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

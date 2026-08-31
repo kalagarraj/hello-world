@@ -1,0 +1,35 @@
+{{ .Chart.Name }} {{ .Chart.Version }} installed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+{{ if .Values.grafana.enabled }}
+Grafana, on port 3300 locally so 3000 stays free for the web app:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "b2c-observability.grafana.fullname" . }} 3300:{{ .Values.grafana.service.port }}
+
+Then open http://localhost:3300/dashboards -> B2C -> API calls.
+{{- if .Values.grafana.anonymous.enabled }}
+Anonymous {{ .Values.grafana.anonymous.role }} access is on, so there is no login, and
+anyone who can reach this Service can read your metrics. Keep it behind
+port-forward, or put real authentication in front of it first.
+{{- end }}
+{{- end }}
+{{ if .Values.prometheus.enabled }}
+Prometheus. Confirm it is actually scraping before blaming an empty panel:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "b2c-observability.prometheus.fullname" . }} 9090:{{ .Values.prometheus.service.port }}
+  curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'
+
+Scraping:
+{{- range .Values.scrapeTargets }}
+  - {{ .name }} at {{ .address }}
+{{- end }}
+
+A target stuck "down" usually means the address does not resolve: it is a
+Service name in this namespace, and the b2c-api chart names its Service after
+its release. Check with `kubectl -n {{ .Release.Namespace }} get svc`, then:
+
+  helm upgrade {{ .Release.Name }} ./helm/b2c-observability \
+    --set scrapeTargets[0].address=<service>:9464
+{{- end }}
+
+Panels stay empty until the API has served something. The demo links on the web
+app's home and welcome pages generate both outcomes; the rejection panels fill
+in from the 401s.

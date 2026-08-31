@@ -1,0 +1,59 @@
+# The API validates bearer tokens; it holds no secrets and needs no session
+# store, so the defaults install it standalone. It does need a tenant: with no
+# way to fetch signing keys it could only accept everything or reject
+# everything, and it refuses to start rather than choose.
+
+replicaCount: 1
+
+image:
+  repository: b2c-api
+  tag: local
+  # Built on this machine and loaded into the cluster, never pulled.
+  pullPolicy: IfNotPresent
+
+# Azure AD B2C. Must be the same tenant and user flow as the web app, or the
+# tokens the web app sends will be signed by keys this API does not trust.
+b2c:
+  tenantName: contoso
+  policyName: B2C_1_signupsignin
+  # Set the full URL instead when the derived shape does not hold: a custom
+  # domain, a CIAM tenant, or a tenant whose initial domain is not
+  # <tenantName>.onmicrosoft.com. See the same value on the b2c-web chart.
+  discoveryUrl: ""
+  # Empty on purpose, and a real weakening: with no audience the API accepts
+  # ANY unexpired token this tenant signed, including tokens issued to other
+  # applications. That is what lets the web app's existing token work without a
+  # second app registration. Set it to this API's own Application (client) ID
+  # before deploying anywhere that matters.
+  audience: ""
+  # Also require this scope in the token's `scp` claim -- the short name as it
+  # appears in the token (`api.read`), not the URI the client requests.
+  requiredScope: ""
+
+# Browser origin allowed to call the API directly. The web app's demo pages
+# call it from the server, which CORS does not police, so this only matters for
+# a browser hitting the API itself.
+corsOrigin: http://localhost:3000
+
+metrics:
+  # The metrics port is separate from the API so the public surface stays at
+  # one route. Turning it off is safe: the API is unaffected, and the readiness
+  # probe below switches to a TCP connect on the API port.
+  enabled: true
+  port: 9464
+
+service:
+  type: ClusterIP
+  port: 3001
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

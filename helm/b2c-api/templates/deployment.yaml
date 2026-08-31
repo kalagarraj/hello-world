@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "b2c-api.fullname" . }}
+  labels:
+    {{- include "b2c-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "b2c-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Rolls the pods when configuration changes; without it an upgrade that
+        # only edits the ConfigMap leaves the old values running.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "b2c-api.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3001
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "b2c-api.fullname" . }}
+          env:
+            - name: PORT
+              value: "3001"
+            {{- if .Values.metrics.enabled }}
+            - name: METRICS_PORT
+              value: {{ .Values.metrics.port | quote }}
+            {{- else }}
+            - name: METRICS_ENABLED
+              value: "false"
+            {{- end }}
+          # The only route requires a bearer token and answers 401 without one,
+          # and an httpGet probe reads 401 as a failure -- probing /hello would
+          # restart healthy pods forever. Readiness therefore probes the
+          # unauthenticated metrics port, which returns 200 and proves the
+          # process is serving.
+          readinessProbe:
+            {{- if .Values.metrics.enabled }}
+            httpGet:
+              path: /metrics
+              port: metrics
+            {{- else }}
+            # With metrics off there is no unauthenticated HTTP route left, so
+            # readiness falls back to the same TCP connect as liveness.
+            tcpSocket:
+              port: http
+            {{- end }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

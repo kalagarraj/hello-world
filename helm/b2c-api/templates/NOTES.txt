@@ -1,0 +1,30 @@
+{{ .Chart.Name }} {{ .Chart.Version }} installed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Watch it come up:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "b2c-api.fullname" . }}
+
+Reach it, and confirm it rejects an unauthenticated call:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "b2c-api.fullname" . }} 3001:{{ .Values.service.port }}{{ if .Values.metrics.enabled }} {{ .Values.metrics.port }}:{{ .Values.metrics.port }}{{ end }}
+  curl -i http://localhost:3001/hello        # HTTP/1.1 401 Unauthorized  <- correct
+
+Point the web app at it, so its demo links call this release:
+
+  helm upgrade b2c-web ./helm/b2c-web -n {{ .Release.Namespace }} \
+    --set demoApiUrl=http://{{ include "b2c-api.fullname" . }}:{{ .Values.service.port }}/hello
+{{ if and (eq .Values.b2c.tenantName "contoso") (not .Values.b2c.discoveryUrl) }}
+WARNING: b2c.tenantName is still the placeholder `contoso`, so the pod will
+crash-loop on start-up -- the API reads the B2C discovery document for the
+issuer and JWKS URI before it serves anything. Install again with your tenant:
+
+  helm upgrade {{ .Release.Name }} ./helm/b2c-api \
+    --set b2c.tenantName=your-tenant \
+    --set b2c.policyName=<the exact user-flow name>
+{{- end }}
+{{- if not .Values.b2c.audience }}
+NOTE: b2c.audience is unset, so ANY unexpired token this tenant signed is
+accepted -- including tokens issued to other applications. That is what lets
+the web app's existing bearer token work with no second app registration, and
+it is not what you want in production. Set it to this API's own client ID.
+{{- end }}

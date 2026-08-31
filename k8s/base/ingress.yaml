@@ -1,0 +1,26 @@
+# Exposes the web app. Left with placeholder hosts and no ingressClassName on
+# purpose: that value differs between AGIC, nginx and Application Gateway for
+# Containers, and guessing it produces an Ingress that silently routes nowhere.
+# Set both in your overlay before applying.
+#
+# Grafana is deliberately NOT exposed here. It runs with anonymous viewer
+# access, so putting it behind a public Ingress publishes your metrics. Reach it
+# with `kubectl port-forward` instead, or put real auth in front of it first.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  labels: { app.kubernetes.io/name: web, app.kubernetes.io/component: ingress }
+  annotations: {}
+spec:
+  # ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port: { name: http }

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: b2c-observability
+description: Prometheus and Grafana for the B2C API, with the API-calls dashboard provisioned
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords: [prometheus, grafana, metrics, observability]
+home: https://github.com/kalagarraj/hello-world

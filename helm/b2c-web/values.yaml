@@ -1,0 +1,78 @@
+# Defaults install a self-contained web app on a local cluster: an image you
+# built yourself, sessions in the pod, and no other service required. Override
+# `redis.url` and `appEnv` when you have somewhere to put sessions.
+
+replicaCount: 1
+
+image:
+  repository: b2c-web
+  tag: local
+  # The image is built on your machine and loaded into the cluster, not pulled.
+  # `Always` would send Kubernetes to a registry that does not have it.
+  pullPolicy: IfNotPresent
+
+# Logical environment. `local` keeps sessions in the pod's memory and leaves the
+# session cookie's Secure flag off, which is what plain http://localhost needs --
+# a Secure cookie there is dropped, and the login lands back on the home page.
+appEnv: local
+
+# The public URL of this app. The redirect URI sent to B2C is this plus
+# /auth/callback, and it must match one registered on the app registration.
+appBaseUrl: http://localhost:3000
+
+# Azure AD B2C. tenantName and clientId have no sensible default -- until they
+# are yours the app serves /setup instead of signing anyone in.
+b2c:
+  tenantName: contoso
+  policyName: B2C_1_signupsignin
+  # The discovery document is derived from tenantName + policyName as
+  #   https://<tenant>.b2clogin.com/<tenant>.onmicrosoft.com/<policy>/v2.0/.well-known/openid-configuration
+  # Set this to the full URL instead whenever that shape does not hold: a
+  # custom domain, a CIAM (*.ciamlogin.com) tenant, or a tenant whose initial
+  # domain is not <tenantName>.onmicrosoft.com. Getting that last one wrong
+  # answers 404 rather than failing loudly, which is hard to read from the pod.
+  discoveryUrl: ""
+  clientId: "00000000-0000-0000-0000-000000000000"
+  scope: openid profile email offline_access
+  # Leave empty for a registration B2C treats as a public client: PKCE only, no
+  # secret at the token endpoint. Filling it in makes the client confidential.
+  clientSecret: ""
+
+# Signs the session cookie. Left empty the chart generates one on first install
+# and reuses it on upgrade, so an upgrade does not sign everybody out.
+sessionSecret: ""
+
+# Bring your own Secret instead of the chart's. It must carry SESSION_SECRET and
+# B2C_CLIENT_SECRET; when set, sessionSecret and b2c.clientSecret are ignored.
+existingSecret: ""
+
+redis:
+  # e.g. redis://redis:6379 in-cluster, or the rediss:// URL of an Azure Cache.
+  # Empty means sessions live in the pod -- fine for one replica, and the chart
+  # refuses to install more than one without a Redis to share.
+  url: ""
+
+# The API the demo links call. Empty leaves the app's own default
+# (http://localhost:3001/hello), which inside a pod is the pod itself -- set it
+# to the API's Service, e.g. http://api:3001/hello, once that is deployed.
+demoApiUrl: ""
+
+# Logs each step of the auth and authz flow, PKCE included. Never logs tokens,
+# codes or verifiers.
+authTrace: true
+
+service:
+  type: ClusterIP
+  port: 3000
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

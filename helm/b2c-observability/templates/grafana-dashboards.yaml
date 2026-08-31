@@ -1,0 +1,20 @@
+{{- if .Values.grafana.enabled }}
+{{/*
+Every JSON in the chart's dashboards/ directory is provisioned. Adding one is
+dropping a file in beside the others -- no template to edit, which is the part
+kustomize's configMapGenerator could not do without listing each file by name.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "b2c-observability.grafana.fullname" . }}-dashboards
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: dashboard
+    {{- include "b2c-observability.commonLabels" . | nindent 4 }}
+data:
+  {{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+  {{- end }}
+{{- end }}

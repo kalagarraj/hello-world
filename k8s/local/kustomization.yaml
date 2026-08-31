@@ -1,0 +1,35 @@
+# A single-node cluster on this machine: kind, minikube, k3d, or the Kubernetes
+# that ships with Docker Desktop. The images come from `docker build` on the
+# same machine rather than a registry, there is no Ingress controller, and
+# everything is reached through `kubectl port-forward`.
+#
+# k8s/local/README.md walks through applying this one component at a time.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: b2c
+resources:
+  - ../base
+
+# :local, not :latest -- a distinct tag makes it obvious that these images were
+# built here and never came from a registry.
+images:
+  - { name: b2c-web, newTag: local }
+  - { name: b2c-api, newTag: local }
+
+patches:
+  - path: web-patch.yaml
+  - path: api-patch.yaml
+  - path: replicas-patch.yaml
+  - path: drop-ingress.yaml
+
+# Tenant and client ID live in ../base/config.yaml so every environment reads
+# one file. Uncomment this only if this cluster should talk to a different
+# tenant or user flow than the base does.
+# configMapGenerator:
+#   - name: b2c-config
+#     behavior: merge
+#     literals:
+#       - B2C_TENANT_NAME=your-tenant
+#       - B2C_CLIENT_ID=00000000-0000-0000-0000-000000000000
+#       - B2C_POLICY_NAME=B2C_1_signupsignin

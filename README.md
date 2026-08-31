@@ -20,3 +20,18 @@ Notes
 
 - This setup is suitable for demos and learning. For a real project, consider creating a full React app using Vite, Create React App, or similar tooling.
 # hello-world
+
+## Also in this repo
+
+- [`k8s/`](k8s/) — Kustomize manifests deploying the apps, Redis and the
+  observability stack, with dev and prod overlays.
+- [`observability/`](observability/) — Prometheus and Grafana with a
+  provisioned dashboard of the API's call volume, outcome and latency, plus an
+  Azure Monitor datasource for the deployed service.
+- [`nestjs-b2c-api/`](nestjs-b2c-api/) — a companion NestJS API whose single
+  `GET /hello` endpoint accepts the Azure AD B2C bearer tokens issued to the app
+  below, validating them against the tenant's JWKS.
+- [`nestjs-b2c-app/`](nestjs-b2c-app/) — a NestJS "Hello World" that signs users
+  in against an Azure AD B2C user flow over OpenID Connect (via `openid-client`,
+  not MSAL), with a public home page and a protected welcome page showing the
+  user's details.

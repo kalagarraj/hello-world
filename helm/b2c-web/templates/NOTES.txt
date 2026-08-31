@@ -1,0 +1,28 @@
+{{ .Chart.Name }} {{ .Chart.Version }} installed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Watch it come up:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "b2c-web.fullname" . }}
+
+Then reach it on {{ .Values.appBaseUrl }} -- the port has to match, because that
+is the redirect URI the app sends to B2C:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "b2c-web.fullname" . }} 3000:{{ .Values.service.port }}
+
+{{ if and (eq .Values.b2c.tenantName "contoso") (not .Values.b2c.discoveryUrl) }}
+WARNING: b2c.tenantName is still the placeholder `contoso`, so the pod will
+crash-loop on start-up -- the app reads the B2C discovery document before it
+serves anything, and contoso.b2clogin.com does not resolve. Install again with
+your own tenant:
+
+  helm upgrade {{ .Release.Name }} ./helm/b2c-web \
+    --set b2c.tenantName=your-tenant \
+    --set b2c.clientId=<the application (client) ID>
+{{- else }}
+Signing in needs http://localhost:3000/auth/callback registered as a redirect
+URI on application {{ .Values.b2c.clientId }} in tenant {{ .Values.b2c.tenantName }}.
+{{- end }}
+{{ if not .Values.redis.url }}
+Sessions are in the pod's memory: restarting it signs everyone out, and this
+release is pinned to one replica. Set redis.url to change that.
+{{- end }}

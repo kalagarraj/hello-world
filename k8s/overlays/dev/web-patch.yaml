@@ -1,0 +1,15 @@
+# Dev uses the in-cluster Redis from the base. REDIS_URL is set here rather
+# than in the Secret, which production uses for Azure Cache for Redis.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          env:
+            - { name: APP_ENV, value: dev }
+            - { name: REDIS_URL, value: redis://redis:6379 }
+            - { name: APP_BASE_URL, value: https://dev.example.com }

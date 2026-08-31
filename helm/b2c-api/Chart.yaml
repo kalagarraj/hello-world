@@ -1,0 +1,10 @@
+apiVersion: v2
+name: b2c-api
+description: The NestJS API that accepts the bearer token Azure AD B2C issued to the web app
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords: [nestjs, azure-ad-b2c, jwt, prometheus]
+home: https://github.com/kalagarraj/hello-world

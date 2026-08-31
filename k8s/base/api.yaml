@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels: { app.kubernetes.io/name: api, app.kubernetes.io/component: api }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: api }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: api }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: api
+          image: b2c-api:latest
+          ports:
+            - { name: http, containerPort: 3001 }
+            - { name: metrics, containerPort: 9464 }
+          envFrom:
+            - configMapRef: { name: b2c-config }
+            - secretRef: { name: b2c-secrets }
+          env:
+            - { name: PORT, value: "3001" }
+            - { name: METRICS_PORT, value: "9464" }
+            # Browser origin allowed to call the API directly. The demo pages
+            # call it server-side so they do not need this, but leaving the
+            # localhost default in a cluster would silently block any real
+            # browser caller. Overlays set their own host.
+            - { name: CORS_ORIGIN, value: https://app.example.com }
+          # The API's only route requires a bearer token and answers 401
+          # without one, and an httpGet probe treats 401 as a failure -- so
+          # probing it would restart a perfectly healthy pod. The metrics port
+          # is unauthenticated and returns 200, which proves the process is
+          # serving; liveness uses a plain TCP connect so it holds even with
+          # METRICS_ENABLED=false.
+          readinessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels: { app.kubernetes.io/name: api, app.kubernetes.io/component: api }
+spec:
+  selector: { app.kubernetes.io/name: api }
+  ports:
+    - { name: http, port: 3001, targetPort: http }
+    - { name: metrics, port: 9464, targetPort: metrics }

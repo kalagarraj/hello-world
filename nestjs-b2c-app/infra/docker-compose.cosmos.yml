@@ -1,0 +1,43 @@
+# Azure Cosmos DB emulator (NoSQL API), kept out of docker-compose.yml because
+# nothing in this app uses Cosmos and the emulator is far heavier than Redis.
+#
+#   docker compose -f docker-compose.cosmos.yml up -d      start it
+#   docker compose -f docker-compose.cosmos.yml logs -f    watch it come up
+#   docker compose -f docker-compose.cosmos.yml down       stop and remove it
+#
+# Endpoint  http://localhost:8081
+# Explorer  http://localhost:1234
+# Key       the fixed, public emulator key -- see README, not a secret.
+
+# Its own project name, so this stack starts and stops independently of the
+# Redis one. Without it both files would share the directory-derived project
+# and Compose would treat each other's containers as orphans.
+name: b2c-cosmos
+
+services:
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-latest
+    # HTTP is the emulator's default; stated explicitly because it matters.
+    # HTTPS generates a self-signed certificate every client must then trust.
+    # The .NET and Java SDKs require HTTPS, so switch to ['--protocol','https']
+    # and publish 8080 as well if you use those. With a persisted /data volume
+    # the emulator regenerates its certificate on startup automatically.
+    command: ['--protocol', 'http']
+    ports:
+      # Loopback only: the emulator's account key is public, so anything that
+      # can reach the port has full access.
+      - '127.0.0.1:8081:8081'   # gateway / data plane
+      - '127.0.0.1:1234:1234'   # Data Explorer UI
+    volumes:
+      # /data is the emulator's persistence path, so databases and containers
+      # survive a restart. Drop this volume for a throwaway instance.
+      - cosmos-data:/data
+      # To seed on first start, create a directory of cosmoshell commands and
+      # mount it, with ENABLE_INIT_DATA=true:
+      # - ./cosmos-seed:/init
+    # environment:
+    #   ENABLE_INIT_DATA: 'true'
+    restart: unless-stopped
+
+volumes:
+  cosmos-data:

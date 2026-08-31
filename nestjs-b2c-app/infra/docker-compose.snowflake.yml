@@ -1,0 +1,59 @@
+# Snowflake emulators for local development.
+#
+# There is no way to run real Snowflake locally -- it is closed-source SaaS with
+# no on-prem build -- so both services below are reimplementations. Treat a pass
+# here as a fast inner loop, not as proof that real Snowflake agrees.
+#
+#   docker compose -f infra/docker-compose.snowflake.yml up -d
+#   docker compose -f infra/docker-compose.snowflake.yml --profile localstack up -d
+#   docker compose -f infra/docker-compose.snowflake.yml down
+#
+# Own project name so this stack starts and stops independently of the others.
+name: b2c-snowflake
+
+services:
+  # Default: fakesnow. Free, open source, DuckDB underneath. Speaks enough of
+  # the Snowflake HTTP protocol for the official connectors in any language.
+  # Dialect coverage is partial -- VARIANT handling, Snowflake-specific
+  # functions and stored procedures are where it diverges.
+  #
+  #   host=127.0.0.1  port=64616  protocol=http
+  #   user=fake  password=snow  account=fakesnow
+  # Credentials are decorative -- any values connect. `SELECT CURRENT_VERSION()`
+  # returns 0.0.0 here, which is a cheap assertion that a job is pointed at the
+  # emulator and not at real Snowflake.
+  snowflake:
+    image: ghcr.io/tekumara/fakesnow:0.11.15
+    ports:
+      - '127.0.0.1:64616:64616'
+    volumes:
+      # Databases are in-memory unless a client asks for persistence, and that
+      # is a *session parameter*, not an environment variable:
+      #   session_parameters={"FAKESNOW_DB_PATH": "/data"}
+      # This volume gives that path somewhere durable to land.
+      - fakesnow-data:/data
+    restart: unless-stopped
+
+  # Alternative: LocalStack for Snowflake. A much closer emulation -- it serves
+  # the Snowflake wire protocol, so dbt and the JDBC/ODBC drivers work against
+  # it -- but it is a COMMERCIAL product and will not start without a licence.
+  # Set LOCALSTACK_AUTH_TOKEN in your environment first, then:
+  #   docker compose -f infra/docker-compose.snowflake.yml --profile localstack up -d
+  snowflake-localstack:
+    profiles: ['localstack']
+    image: localstack/snowflake:2026.07.0
+    ports:
+      - '127.0.0.1:4566:4566'
+    environment:
+      # Deliberately not Compose's required-variable syntax (:?): that is
+      # evaluated when the file is parsed, even for an inactive profile, so it
+      # would break `up` for fakesnow alone. LocalStack reports the missing
+      # licence itself.
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
+    volumes:
+      - localstack-data:/var/lib/localstack
+    restart: unless-stopped
+
+volumes:
+  fakesnow-data:
+  localstack-data:
