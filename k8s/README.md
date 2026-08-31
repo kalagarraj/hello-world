@@ -138,12 +138,13 @@ host, in your overlay.
 
 ## The duplicated dashboard
 
-Kustomize will not read files outside its own directory, and `kubectl -k`
-provides no way to relax that, so the Grafana dashboard exists both under
-`observability/` (for Compose) and under `k8s/base/dashboards/`. They are the
-same file and must stay that way:
+Neither kustomize nor Helm will read files outside its own directory, and
+`kubectl -k` provides no way to relax that, so the Grafana dashboard exists
+under `observability/` (for Compose), under `k8s/base/dashboards/`, and under
+`helm/b2c-observability/dashboards/`. They are the same file and must stay that
+way:
 
 ```bash
-./k8s/sync-dashboard.sh          # copy observability/ -> k8s/base/
-./k8s/sync-dashboard.sh --check  # fail if they differ; for CI
+./k8s/sync-dashboard.sh          # copy observability/ -> the other two
+./k8s/sync-dashboard.sh --check  # fail if any differ; for CI
 ```

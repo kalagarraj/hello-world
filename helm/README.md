@@ -1,18 +1,19 @@
 # Helm charts
 
 Helm owns **releases**: what is deployed, at which version, and how to move
-back. Terraform owns the infrastructure underneath — cluster, registry, cache,
-Key Vault — and hands its outputs in as values.
+back. Terraform owns the infrastructure underneath (cluster, registry, cache,
+Key Vault) and hands its outputs in as values.
 
 ```
 helm/
-  b2c-web/     the NestJS web app: Deployment, Service, ConfigMap, Secret
-  b2c-api/     the NestJS API:     Deployment, Service, ConfigMap
+  b2c-web/            the NestJS web app: Deployment, Service, ConfigMap, Secret
+  b2c-api/            the NestJS API:     Deployment, Service, ConfigMap
+  b2c-observability/  Prometheus and Grafana, dashboard provisioned
 ```
 
-Redis and the observability stack still ship as the Kustomize manifests under
-`k8s/`; charts for those can follow the same shape, or the two here can become
-subcharts of an umbrella `b2c` chart later.
+Redis still ships only as the Kustomize manifests under `k8s/`; a chart for it
+can follow the same shape, or these three can become subcharts of an umbrella
+`b2c` chart later.
 
 ## Installing on a local cluster
 
@@ -24,7 +25,7 @@ the app image built on this machine.
 docker build -t b2c-web:local -f nestjs-b2c-app/infra/Dockerfile nestjs-b2c-app
 kind load docker-image b2c-web:local --name b2c     # kind
 # minikube image load b2c-web:local                 # minikube
-# Docker Desktop shares its daemon with the cluster — nothing to load
+# Docker Desktop shares its daemon with the cluster, nothing to load
 
 # 2. Install, with your own tenant and client ID.
 helm install b2c-web ./helm/b2c-web \
@@ -50,7 +51,7 @@ helm install b2c-web ./helm/b2c-web -n b2c --create-namespace -f my-values.yaml
 ## Installing the API
 
 Same shape, one release along side the other, and **the same tenant and user
-flow** — the API validates the token the web app was issued, so a different
+flow**. The API validates the token the web app was issued, so a different
 tenant means keys it does not trust.
 
 ```bash
@@ -65,7 +66,7 @@ helm install b2c-api ./helm/b2c-api -n b2c \
 helm upgrade b2c-web ./helm/b2c-web -n b2c --set demoApiUrl=http://b2c-api:3001/hello
 ```
 
-**Check** — a 401 is the success case, because the endpoint requires a bearer
+**Check**: a 401 is the success case, because the endpoint requires a bearer
 token and `curl` sent none:
 
 ```bash
@@ -74,15 +75,15 @@ curl -i http://localhost:3001/hello                       # 401 Unauthorized
 curl -s http://localhost:9464/metrics | grep api_requests_total | head -3
 ```
 
-The API holds no credentials — it validates tokens with the tenant's public
-signing keys — so this chart creates **no Secret at all**. It also has no
+The API holds no credentials, since it validates tokens with the tenant's
+public signing keys, so this chart creates **no Secret at all**. It also has no
 session state, so `replicaCount` is free to be whatever you want.
 
 | value | default | what it does |
 | --- | --- | --- |
 | `b2c.tenantName` / `b2c.policyName` | placeholders | must match the web app's; the pod crash-loops until they resolve |
 | `b2c.discoveryUrl` | `""` | full URL, for the cases the derived one cannot express |
-| `b2c.audience` | `""` | **unset means any token this tenant signed is accepted** — see below |
+| `b2c.audience` | `""` | **unset means any token this tenant signed is accepted**, see below |
 | `b2c.requiredScope` | `""` | also require this scope in the token's `scp` claim |
 | `corsOrigin` | `http://localhost:3000` | browser origin allowed to call the API directly |
 | `metrics.enabled` | `true` | opens the metrics port, and decides the readiness probe |
@@ -94,7 +95,7 @@ to this API's own client ID before deploying anywhere real. The pod says so in
 its own start-up logs, loudly.
 
 **Probes.** The API's only route answers 401 without a token, and an `httpGet`
-probe reads 401 as a failure — probing `/hello` would restart healthy pods
+probe reads 401 as a failure, so probing `/hello` would restart healthy pods
 forever. Readiness probes the unauthenticated metrics port instead; with
 `metrics.enabled=false` there is no unauthenticated route left, so it falls back
 to a TCP connect. Liveness is always a TCP connect.
@@ -107,7 +108,7 @@ install as `helm install api ./helm/b2c-api`, or point the scrape config at
 ## What the defaults give you
 
 A web app that needs nothing else running: `appEnv: local`, so sessions live in
-the pod and the session cookie's `Secure` flag stays off — a Secure cookie over
+the pod and the session cookie's `Secure` flag stays off, because a Secure cookie over
 plain `http://localhost` is dropped by the browser, and the login would appear
 to succeed and land back on the home page.
 
@@ -141,11 +142,67 @@ helm upgrade b2c-web ./helm/b2c-web -n b2c \
 | `redis.url` | `""` | shared sessions, and the gate on more than one replica |
 | `demoApiUrl` | `""` | the API the demo links call, e.g. `http://api:3001/hello` |
 
+## Installing observability
+
+Prometheus and Grafana are one release, not two. Grafana's only datasource is
+this Prometheus, so the datasource URL is derived from the release rather than
+configured, and there is no way to end up pointing at a Prometheus nobody
+deployed.
+
+```bash
+helm install b2c-observability ./helm/b2c-observability -n b2c
+
+kubectl -n b2c port-forward svc/b2c-observability-grafana 3300:3000
+```
+
+Open <http://localhost:3300/dashboards> and pick **B2C / API calls**. Port 3300
+only to leave 3000 free for the web app.
+
+**What it scrapes** is the one value you are likely to change. `scrapeTargets`
+defaults to `b2c-api:9464`, which is the Service the API chart creates when its
+release is named `b2c-api`. Named it something else, and the target sits `down`
+until you say so:
+
+```bash
+kubectl -n b2c get svc                    # what is the API's Service actually called?
+helm upgrade b2c-observability ./helm/b2c-observability -n b2c \
+  --set scrapeTargets[0].address=api:9464
+```
+
+Verify before blaming an empty panel, because a `down` target and a quiet API
+look identical on a dashboard:
+
+```bash
+kubectl -n b2c port-forward svc/b2c-observability-prometheus 9090:9090
+curl -s 'http://localhost:9090/api/v1/targets?state=active' | grep -o '"health":"[a-z]*"'
+```
+
+| value | default | what it does |
+| --- | --- | --- |
+| `scrapeTargets` | `b2c-api:9464` | list of `{name, address, labels}`; address is a Service name in this namespace |
+| `prometheus.retention` | `7d` | storage is an `emptyDir`, so a restart drops history regardless |
+| `prometheus.scrapeInterval` | `10s` | also becomes Grafana's `timeInterval` |
+| `grafana.anonymous.enabled` | `true` | no login, and no protection either; see below |
+| `prometheus.enabled` / `grafana.enabled` | `true` | install one without the other |
+
+**Adding a dashboard** is dropping a JSON file into `b2c-observability/dashboards/`.
+Every file matching `dashboards/*.json` is provisioned, and Grafana's pod rolls
+when any of them change, so no template needs editing. `b2c-api-calls.json` is a
+copy of `observability/grafana/dashboards/b2c-api-calls.json`, because neither
+Helm nor kustomize reads files outside its own directory. `./k8s/sync-dashboard.sh`
+refreshes both copies and `--check` fails when either has drifted.
+
+**Grafana has no authentication.** Anonymous Viewer access is on, matching the
+Compose stack, so anyone who can reach the Service can read your metrics. That
+is fine behind `kubectl port-forward` and not fine behind an Ingress. Set
+`grafana.anonymous.enabled=false`, or put real auth in front of it, before
+exposing it.
+
 ## Secrets
 
 By default the chart creates a Secret holding `SESSION_SECRET` and
 `B2C_CLIENT_SECRET`. The session secret is generated once and read back from the
-cluster on every upgrade — regenerating it would sign every user out on a change
+cluster on every upgrade, since regenerating it would sign every user out on a change
 that had nothing to do with sessions.
 
 For anything beyond a laptop, don't put the real secret in values at all. Create
@@ -189,7 +246,7 @@ generated `SESSION_SECRET` every time. An actual upgrade keeps the installed one
 ## Where Terraform stops and Helm starts
 
 Terraform creates the cluster, the registry, the Azure Cache and the Key Vault,
-then its outputs become values here — `image.repository` from the registry login
+then its outputs become values here: `image.repository` from the registry login
 server, `redis.url` from the cache, `appBaseUrl` from the ingress host. Helm
 never provisions infrastructure, and Terraform never deploys the app: keeping a
 per-commit rollout out of a state file means a `terraform destroy` typo cannot

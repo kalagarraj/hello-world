@@ -1,0 +1,26 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "b2c-observability.prometheus.fullname" . }}
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: metrics
+    {{- include "b2c-observability.commonLabels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.prometheus.scrapeInterval }}
+      evaluation_interval: {{ .Values.prometheus.scrapeInterval }}
+    scrape_configs:
+      {{- range .Values.scrapeTargets }}
+      - job_name: {{ .name }}
+        metrics_path: /metrics
+        static_configs:
+          - targets: [{{ .address | quote }}]
+            {{- with .labels }}
+            labels:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+      {{- end }}
+{{- end }}

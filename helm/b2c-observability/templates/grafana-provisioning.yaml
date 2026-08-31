@@ -1,0 +1,34 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "b2c-observability.grafana.fullname" . }}-provisioning
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: dashboard
+    {{- include "b2c-observability.commonLabels" . | nindent 4 }}
+data:
+  datasources.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        # The dashboards reference this uid, so it is fixed rather than
+        # generated -- a renamed datasource would leave every panel blank.
+        uid: prometheus
+        access: proxy
+        url: {{ include "b2c-observability.prometheusUrl" . }}
+        isDefault: true
+        jsonData:
+          timeInterval: {{ .Values.prometheus.scrapeInterval }}
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: b2c
+        orgId: 1
+        folder: B2C
+        type: file
+        allowUiUpdates: false
+        options:
+          path: /etc/grafana/dashboards
+{{- end }}
