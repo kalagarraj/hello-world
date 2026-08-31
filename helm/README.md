@@ -7,11 +7,12 @@ Key Vault — and hands its outputs in as values.
 ```
 helm/
   b2c-web/     the NestJS web app: Deployment, Service, ConfigMap, Secret
+  b2c-api/     the NestJS API:     Deployment, Service, ConfigMap
 ```
 
-Only the web app so far. The API, Redis and the observability stack still ship
-as the Kustomize manifests under `k8s/`; charts for those can follow the same
-shape, or become subcharts of an umbrella `b2c` chart later.
+Redis and the observability stack still ship as the Kustomize manifests under
+`k8s/`; charts for those can follow the same shape, or the two here can become
+subcharts of an umbrella `b2c` chart later.
 
 ## Installing on a local cluster
 
@@ -45,6 +46,63 @@ Prefer a values file over a wall of `--set` once you have more than a couple:
 ```bash
 helm install b2c-web ./helm/b2c-web -n b2c --create-namespace -f my-values.yaml
 ```
+
+## Installing the API
+
+Same shape, one release along side the other, and **the same tenant and user
+flow** — the API validates the token the web app was issued, so a different
+tenant means keys it does not trust.
+
+```bash
+docker build -t b2c-api:local -f nestjs-b2c-api/infra/Dockerfile nestjs-b2c-api
+kind load docker-image b2c-api:local --name b2c
+
+helm install b2c-api ./helm/b2c-api -n b2c \
+  --set b2c.tenantName=your-tenant \
+  --set b2c.policyName=<the exact user-flow name>
+
+# Point the web app's demo links at this release.
+helm upgrade b2c-web ./helm/b2c-web -n b2c --set demoApiUrl=http://b2c-api:3001/hello
+```
+
+**Check** — a 401 is the success case, because the endpoint requires a bearer
+token and `curl` sent none:
+
+```bash
+kubectl -n b2c port-forward svc/b2c-api 3001:3001 9464:9464
+curl -i http://localhost:3001/hello                       # 401 Unauthorized
+curl -s http://localhost:9464/metrics | grep api_requests_total | head -3
+```
+
+The API holds no credentials — it validates tokens with the tenant's public
+signing keys — so this chart creates **no Secret at all**. It also has no
+session state, so `replicaCount` is free to be whatever you want.
+
+| value | default | what it does |
+| --- | --- | --- |
+| `b2c.tenantName` / `b2c.policyName` | placeholders | must match the web app's; the pod crash-loops until they resolve |
+| `b2c.discoveryUrl` | `""` | full URL, for the cases the derived one cannot express |
+| `b2c.audience` | `""` | **unset means any token this tenant signed is accepted** — see below |
+| `b2c.requiredScope` | `""` | also require this scope in the token's `scp` claim |
+| `corsOrigin` | `http://localhost:3000` | browser origin allowed to call the API directly |
+| `metrics.enabled` | `true` | opens the metrics port, and decides the readiness probe |
+
+`b2c.audience` empty is what lets the web app's existing bearer token work with
+no second app registration, and it is a real weakening: any unexpired token the
+tenant signed is accepted, including tokens issued to other applications. Set it
+to this API's own client ID before deploying anywhere real. The pod says so in
+its own start-up logs, loudly.
+
+**Probes.** The API's only route answers 401 without a token, and an `httpGet`
+probe reads 401 as a failure — probing `/hello` would restart healthy pods
+forever. Readiness probes the unauthenticated metrics port instead; with
+`metrics.enabled=false` there is no unauthenticated route left, so it falls back
+to a TCP connect. Liveness is always a TCP connect.
+
+**If you scrape with the Prometheus from `k8s/`**, note that it targets
+`api:9464` by name while this chart names the Service after the release. Either
+install as `helm install api ./helm/b2c-api`, or point the scrape config at
+`b2c-api:9464`.
 
 ## What the defaults give you
 

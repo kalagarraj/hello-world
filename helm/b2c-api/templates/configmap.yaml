@@ -1,0 +1,25 @@
+{{/*
+Everything the API reads. None of it is secret: the API validates tokens with
+the tenant's public signing keys and holds no credentials of its own, which is
+why this chart creates no Secret at all.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "b2c-api.fullname" . }}
+  labels:
+    {{- include "b2c-api.labels" . | nindent 4 }}
+data:
+  B2C_TENANT_NAME: {{ .Values.b2c.tenantName | quote }}
+  B2C_POLICY_NAME: {{ .Values.b2c.policyName | quote }}
+  {{- if .Values.b2c.discoveryUrl }}
+  # Takes precedence over tenantName/policyName, which the app then ignores.
+  B2C_DISCOVERY_URL: {{ .Values.b2c.discoveryUrl | quote }}
+  {{- end }}
+  {{- if .Values.b2c.audience }}
+  B2C_API_AUDIENCE: {{ .Values.b2c.audience | quote }}
+  {{- end }}
+  {{- if .Values.b2c.requiredScope }}
+  B2C_REQUIRED_SCOPE: {{ .Values.b2c.requiredScope | quote }}
+  {{- end }}
+  CORS_ORIGIN: {{ .Values.corsOrigin | quote }}

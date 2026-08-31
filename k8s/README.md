@@ -12,11 +12,11 @@ k8s/
   sync-dashboard.sh     keeps the Grafana dashboard copy honest
 ```
 
-> **Helm.** The web app also ships as a chart in [`helm/b2c-web`](../helm/b2c-web),
-> which is where releases are heading — `helm history` / `helm rollback` and a
-> single `helm uninstall` are things `kubectl apply` cannot give you. The
-> manifests here still cover the whole stack; charts for the API, Redis and the
-> observability pieces can follow.
+> **Helm.** The web app and the API also ship as charts in
+> [`helm/`](../helm), which is where releases are heading — `helm history` /
+> `helm rollback` and a single `helm uninstall` are things `kubectl apply`
+> cannot give you. The manifests here still cover the whole stack; charts for
+> Redis and the observability pieces can follow.
 
 **Deploying this for the first time? Start with [local/README.md](local/README.md).**
 It brings the stack up on kind, minikube or Docker Desktop one component at a
