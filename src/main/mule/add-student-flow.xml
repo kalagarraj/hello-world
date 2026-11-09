@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <flow name="add-student-flow">
+        <choice doc:name="Is name alisha?" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation">
+            <when expression="#[payload.name == 'alisha']">
+                <ee:transform doc:name="Add student field">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload ++ { student: "kannan" }]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </when>
+            <otherwise>
+                <raise-error doc:name="Raise APP:INVALID_NAME"
+                             type="APP:INVALID_NAME"
+                             description="#['Invalid name: ' ++ (payload.name default 'null') ++ '. Expected alisha.']"/>
+            </otherwise>
+        </choice>
+
+        <error-handler>
+            <on-error-propagate type="APP:INVALID_NAME">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorType: error.errorType.namespace ++ ":" ++ error.errorType.identifier,
+    message: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+</mule>
