@@ -1,13 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
       xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="
         http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
         http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
+    <http:listener-config name="HTTP_Listener_config">
+        <http:listener-connection host="0.0.0.0" port="8081"/>
+    </http:listener-config>
+
     <flow name="add-student-flow">
-        <choice doc:name="Is name alisha?" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation">
+        <http:listener doc:name="POST /student" config-ref="HTTP_Listener_config"
+                       path="/student" allowedMethods="POST">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:body>#[payload]</http:body>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+            </http:error-response>
+        </http:listener>
+
+        <choice doc:name="Is name alisha?">
             <when expression="#[payload.name == 'alisha']">
                 <ee:transform doc:name="Add student field">
                     <ee:message>
@@ -16,6 +33,9 @@ output application/json
 ---
 payload ++ { student: "kannan" }]]></ee:set-payload>
                     </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[200]]></ee:set-variable>
+                    </ee:variables>
                 </ee:transform>
             </when>
             <otherwise>
@@ -27,7 +47,7 @@ payload ++ { student: "kannan" }]]></ee:set-payload>
 
         <error-handler>
             <on-error-propagate type="APP:INVALID_NAME">
-                <ee:transform>
+                <ee:transform doc:name="400 Bad Request">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -37,6 +57,25 @@ output application/json
     message: error.description
 }]]></ee:set-payload>
                     </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="ANY">
+                <ee:transform doc:name="500 Internal Server Error">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorType: error.errorType.namespace ++ ":" ++ error.errorType.identifier,
+    message: error.description
+}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                    </ee:variables>
                 </ee:transform>
             </on-error-propagate>
         </error-handler>
